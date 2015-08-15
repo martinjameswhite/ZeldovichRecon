@@ -19,4 +19,4 @@ Finally, there is a version which implements the "ZEFT" formalism of
 including the alpha term described in that paper.
 This version is designed to be called from Python through the ctypes
 library.  An example is given in zeftr.py and you should consider the
-same compiler flags as above.
+same compiler flags as above.  An example Makefile is included.
