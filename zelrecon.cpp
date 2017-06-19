@@ -207,6 +207,7 @@ protected:
     // displacement field.  Eq. (29) of CLPT paper.  Does the integral
     // in ln(k), assuming kLin is equally spaced in ln(k) and that there
     // are enough points in the array for such an integral.
+    // Fixed dumb mistake in zero-lag for cross-term!
     int wt=4; double sum=0;
     for (int i=1; i<kLin.size(); ++i) {
       double sk1,sk2;
@@ -221,7 +222,10 @@ protected:
           std::cerr<<"Unknown itype="<<itype<<" in calcSigma2."<<std::endl;
           myexit(1);
       }
-      sum += exp(kLin[i]+pLin[i])*sk1*sk2*wt;
+      if (itype==3)
+        sum += exp(kLin[i]+pLin[i])*0.5*(sk1*sk1+sk2*sk2)*wt;
+      else
+        sum += exp(kLin[i]+pLin[i])*sk1*sk2*wt;
       wt   = 8/wt;
     }
     sum *= (kLin[2]-kLin[0])/6;

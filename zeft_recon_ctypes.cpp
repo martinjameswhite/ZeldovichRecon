@@ -207,6 +207,7 @@ protected:
     // displacement field.  Eq. (29) of CLPT paper.  Does the integral
     // in ln(k), assuming kLin is equally spaced in ln(k) and that there
     // are enough points in the array for such an integral.
+    // Fixed dumb mistake in zero-lag for cross-term!
     double sum=0;
 #pragma omp parallel for reduction(+:sum)
     for (int i=1; i<kLin.size(); ++i) {
@@ -223,7 +224,10 @@ protected:
           myexit(1);
       }
       int wt = 2+2*(i%2);
-      sum += exp(kLin[i]+pLin[i])*sk1*sk2*wt;
+      if (itype==3)
+        sum += exp(kLin[i]+pLin[i])*0.5*(sk1*sk1+sk2*sk2)*wt;
+      else
+        sum += exp(kLin[i]+pLin[i])*sk1*sk2*wt;
     }
     sum *= (kLin[2]-kLin[0])/6;
     sum /= 6*M_PI*M_PI;
