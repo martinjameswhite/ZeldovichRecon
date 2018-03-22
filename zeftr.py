@@ -2,7 +2,7 @@
 # This is just like zelrecon, but with an extra parameter.
 
 
-import numpy  as N
+import numpy  as np
 import socket
 import ctypes
 import os
@@ -37,7 +37,7 @@ class ZeftRecon:
           ctypes.c_double(Rf),ctypes.c_double(Apar),ctypes.c_double(Aperp),\
           ctypes.c_double(Aeft),ctypes.c_char_p(self.tmpfn))
         if (ret==0)&(os.path.isfile(self.tmpfn)):
-            dd = N.loadtxt(self.tmpfn)
+            dd = np.loadtxt(self.tmpfn)
             os.remove(self.tmpfn)
         else:
             outstr = "ZeftRecon call failed with: "+pkfile+","+str(ff)+\

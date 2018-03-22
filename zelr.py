@@ -1,7 +1,7 @@
 # Python wrapper class for zelrecon code.
 
 
-import numpy  as N
+import numpy  as np
 import socket
 import ctypes
 import os
@@ -36,7 +36,7 @@ class ZelRecon:
           ctypes.c_double(Rf),ctypes.c_double(Apar),ctypes.c_double(Aperp),\
           ctypes.c_char_p(self.tmpfn))
         if (ret==0)&(os.path.isfile(self.tmpfn)):
-            dd = N.loadtxt(self.tmpfn)
+            dd = np.loadtxt(self.tmpfn)
             os.remove(self.tmpfn)
         else:
             outstr = "ZelRecon call failed with: "+pkfile+","+str(ff)+\
