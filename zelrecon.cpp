@@ -150,6 +150,7 @@ protected:
   const static int	NqTable=2048,NkTable=2048;
   GaussLegendre		gl;
   std::vector<double>	kLin,pLin,etaPer,etaPar,uVal,xiLin;
+  std::vector<double>	J2Lin,J3Lin,J4Lin;
   double		qmin,qmax,Rf,delta,dkinv,sigma2;
   std::vector<double> sphBess(const double x) {
     // Returns j0(x) and j1(x)/x.
@@ -276,6 +277,53 @@ protected:
     sum[3] *= hh/3.0/(2*M_PI*M_PI);
     return(sum);
   }
+  std::vector<double> calc_Jn(const double q) {
+    // Computes the \mathcal{J}_n integrals, which are used in the shear terms.
+    const int Nk=kLin.size();
+    const int Nint=25000;
+    const double xmax=100*M_PI;
+    double lkmax=(log(xmax/(q+0.01))>kLin[Nk-1])?kLin[Nk-1]:log(xmax/(q+0.01));
+    const double hh=(lkmax-kLin[0])/Nint;
+    double sum1=0,sum2=0,sum3=0,sum4=0;
+    for (int i=1; i<Nint; ++i) {
+      double xx = kLin[0]+i*hh;
+      double ap = cos(M_PI/2.*exp(xx-lkmax));
+      double kk = exp(xx);
+      double k2 = kk*kk;
+      double kq = kk*q;
+      int    jj = (int)(i*hh*dkinv);
+      if (jj>=pLin.size()-2) jj=pLin.size()-2;
+      double pk = exp(pLin[jj]+(xx-kLin[jj])*
+                     (pLin[jj+1]-pLin[jj])/(kLin[jj+1]-kLin[jj]));
+      std::vector<double> jl=sphBess(kq);
+      double j0,j1,j2,j3,j4;
+      j0=jl[0];
+      if (kq<0.9) {
+        double kq2 = kq*kq;
+        j1 = kq *(1./3.+ kq2*(-1./30.+kq2*(1./840.-kq2/45360.)));
+        j2 = kq2*(1./15.+kq2*(-1./210.+kq2*(1./7560-kq2/498960.)));
+        j3 = kq *kq2*(1./105.+kq2*(-1./1890+kq2*(1./83160-kq2/6486480.)));
+        j4 = kq2*kq2*(1./945.+kq2*(-1./20790.+kq2/1081080.));
+      }
+      else {
+        j1 =    jl[1]*kq;
+        j2 = 3.*jl[1]  -jl[0];
+        j3 = 5.*j2/(kq)-j1;
+        j4 = 7.*j3/(kq)-j2;
+      }
+      int wt= 2+2*(i%2);
+      sum1 += k2*pk*kk*(j2)*wt;
+      sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt * ap;
+      sum3 += k2*pk*(-1./5.*j1-1./5.*j3)*wt;
+      sum4 += k2*pk*(j3)*wt;
+    }
+    std::vector<double> sum(5);
+    sum[1] = sum1 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_1
+    sum[2] = sum2 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_2
+    sum[3] = sum3 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_3
+    sum[4] = sum4 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_4
+    return(sum);
+  }
   void tabulateQfuncs(const int itype=0) {
     // Finally, tabulate sigma2, etaPer, etaPar, etc.
     qmin = 1.0/exp(kLin[NkTable-1]);  if (qmin<0.2) qmin=0.2;
@@ -289,27 +337,40 @@ protected:
       etaPar.resize(Nsample);
         uVal.resize(Nsample);
        xiLin.resize(Nsample);
+       J2Lin.resize(Nsample);
+       J3Lin.resize(Nsample);
+       J4Lin.resize(Nsample);
     } catch(std::exception& e) {myexception(e);}
     delta=(qmax-qmin)/(Nsample-1);
     for (int i=0; i<Nsample; ++i) {
       double qq = qmin+i*delta;
       std::vector<double> qf=calcQfuncs(qq,itype);
+      std::vector<double> Jn=calc_Jn(   qq);
        qvals[i] = qq;
       etaPer[i] = qf[0];
       etaPar[i] = qf[1];
       uVal[  i] = qf[2];
       xiLin[ i] = qf[3] * qq*qq;
+      J2Lin[ i] = Jn[2];
+      J3Lin[ i] = Jn[3];
+      J4Lin[ i] = Jn[4];
     }
     // then fit splines and retabulate it onto a finer grid.
     Spline etaPerSpline(qvals,etaPer);
     Spline etaParSpline(qvals,etaPar);
     Spline   uValSpline(qvals,uVal);
     Spline  xiLinSpline(qvals,xiLin);
+    Spline  J2LinSpline(qvals,J2Lin);
+    Spline  J3LinSpline(qvals,J3Lin);
+    Spline  J4LinSpline(qvals,J4Lin);
     try {
       etaPer.resize(NqTable);
       etaPar.resize(NqTable);
         uVal.resize(NqTable);
        xiLin.resize(NqTable);
+       J2Lin.resize(NqTable);
+       J3Lin.resize(NqTable);
+       J4Lin.resize(NqTable);
     } catch(std::exception& e) {myexception(e);}
     sigma2 = calcSigma2(itype);
     delta=(qmax-qmin)/(NqTable-1);
@@ -319,12 +380,15 @@ protected:
       etaPar[i] = etaParSpline(qq);
       uVal[  i] =   uValSpline(qq);
       xiLin[ i] =  xiLinSpline(qq)/qq/qq;
+      J2Lin[ i] =  J2LinSpline(qq);
+      J3Lin[ i] =  J3LinSpline(qq);
+      J4Lin[ i] =  J4LinSpline(qq);
     }
   }
   std::vector<double> interpQfuncs(const double q) {
     // Does a linear interpolation to return etaPer and etaPar.
     // Also returns U(q) and xi_lin.
-    std::vector<double> qf(4);
+    std::vector<double> qf(9);
     int k=(NqTable-1)*(q-qmin)/(qmax-qmin);
     if (q>qmin && q<qmax) {
       double dq = (q-(qmin+k*delta))/delta;
@@ -332,20 +396,28 @@ protected:
       qf[1]=etaPar[k]+dq*(etaPar[k+1]-etaPar[k]);
       qf[2]=  uVal[k]+dq*(  uVal[k+1]-  uVal[k]);
       qf[3]= xiLin[k]+dq*( xiLin[k+1]- xiLin[k]);
+      qf[4]= 0;
+      qf[5]= 0;
+      qf[6]= J2Lin[k]+dq*( J2Lin[k+1]- J2Lin[k]);
+      qf[7]= J3Lin[k]+dq*( J3Lin[k+1]- J3Lin[k]);
+      qf[8]= J4Lin[k]+dq*( J4Lin[k+1]- J4Lin[k]);
     }
     else {
       const double TINY=1e-10;
       if (q<qmin) {
         qf[0]=sigma2 - TINY;
         qf[1]=sigma2 - TINY;
-        qf[2]=0;
-        qf[3]=0;
+        qf[2]=qf[3]=qf[4]=qf[5]=qf[6]=qf[7]=qf[8]=0;
       }
       if (q>qmax) {
         qf[0]=etaPer[NqTable-1];
         qf[1]=etaPar[NqTable-1];
         qf[2]=uVal[  NqTable-1];
         qf[3]=xiLin[ NqTable-1];
+        qf[4]=qf[5]=0;
+        qf[6]=J2Lin[ NqTable-1];
+        qf[7]=J3Lin[ NqTable-1];
+        qf[8]=J4Lin[ NqTable-1];
       }
     }
     return(qf);
@@ -508,7 +580,7 @@ public:
     const double r2   =rval*rval;
     const int    Nx=500;
     const double dx=(xmax-xmin)/Nx;
-    std::vector<double> xi(6);
+    std::vector<double> xi(7);
     for (int ixx=0; ixx<Nx; ++ixx) {
       double xx=xmin+(ixx+0.5)*dx;
       double x2=xx*xx;
@@ -544,6 +616,16 @@ public:
             for (int j=0; j<3; ++j)
               UUG += qf[2]*qf[2]*qh[i]*qh[j]*G[3*i+j];
           }
+          // The <s^2 Delta Delta> term:
+          double shear=0;
+          for (int i=0; i<3; ++i)
+            for (int j=0; j<3; ++j) {
+              double upsilon= qh[i]*qh[j]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
+                              2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
+                              qf[8]*qf[8]) + (i==j)*2*qf[7]*qf[7];
+              shear += G[3*i+j]*upsilon;
+            }
+          shear *= 2;
           // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 terms.
           xi[0] +=    pref;
           xi[1] += -2*pref*Ug;
@@ -551,6 +633,7 @@ public:
           xi[3] +=    pref*(qf[3]-UUG);
           xi[4] += -2*pref*qf[3]*Ug;
           xi[5] +=0.5*pref*qf[3]*qf[3];
+          xi[6] +=   -pref*shear;
         }
       }
     }
@@ -575,7 +658,7 @@ public:
     const int    Nx=256,Nphi=32;
     const double dx=(xmax-xmin)/Nx;
     const double dphi=2*M_PI/Nphi;
-    std::vector<double> xi(6);
+    std::vector<double> xi(7);
     for (int ixx=0; ixx<Nx; ++ixx) {
       double xx=xmin+(ixx+0.5)*dx;
       double x2=xx*xx;
@@ -624,13 +707,24 @@ public:
               for (int j=0; j<3; ++j)
                 UUG += U[i]*U[j]*G[3*i+j];
             }
-            // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 terms.
+            // The <s^2 Delta Delta> term:
+            double shear=0;
+            for (int i=0; i<3; ++i)
+              for (int j=0; j<3; ++j) {
+                double upsilon= qh[i]*qh[j]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
+                                2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
+                                qf[8]*qf[8]) + (i==j)*2*qf[7]*qf[7];
+                shear += G[3*i+j]*upsilon;
+              }
+            shear *= 2;
+            // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 & shear terms.
             xi[0] +=    pref;
             xi[1] += -2*pref*Ug;
             xi[2] +=   -pref*UUG;
             xi[3] +=    pref*(qf[3]-UUG);
             xi[4] += -2*pref*qf[3]*Ug;
             xi[5] +=0.5*pref*qf[3]*qf[3];
+            xi[6] +=   -pref*shear;
           }
         }
       }
@@ -650,7 +744,7 @@ public:
     GaussLegendre gg = GaussLegendre(2*Nmu);	// Must be even.
     // For even lengths, can sum over half of the points.
     std::vector<double> xiell;
-    try{xiell.resize(12);}catch(std::exception& e) {myexception(e);}
+    try{xiell.resize(14);}catch(std::exception& e) {myexception(e);}
     for (int i=0; i<Nmu; ++i) {
       std::vector<double> ximu = xiContributions(rval,gg.x[i],f1,f2);
       double p0=1.0;
@@ -671,22 +765,24 @@ public:
 
 int	main(int argc, char **argv)
 {
-  if (argc!=6) {
-    std::cout<<"Usage: zeldovich <pkfile> <f> <b1> <b2> <R>"
+  if (argc!=7) {
+    std::cout<<"Usage: zeldovich <pkfile> <f> <b1> <b2> <bs> <R>"
              <<std::endl;
     exit(1);
   }
   const double ff = atof(argv[2]);
-  const double Rf = atof(argv[5]);
+  const double Rf = atof(argv[6]);
 
   // Set up the values of (b,f) for the different "types" of
   // correlation function (0=NoRecon, 1=DD, 2=SS, 3=DS) so we
   // can just refer to them in the loops below.
   const int Ntype=4;
   double b1[Ntype],b2[Ntype],b1b1[Ntype],b1b2[Ntype],b2b2[Ntype];
+  double bs[Ntype];
   double f1[Ntype],f2[Ntype];
   b1[0] = atof(argv[3]); b1[1]=  b1[0];   b1[2]=0;   b1[3]=0.5*b1[0];
   b2[0] = atof(argv[4]); b2[1]=  b2[0];   b2[2]=0;   b2[3]=0.5*b2[0];
+  bs[0] = 0;             bs[1]=  0;       bs[2]=0;   bs[3]=0;
   b1b1[0]=b1[0]*b1[0]; b1b1[1]=b1b1[0]; b1b1[2]=0; b1b1[3]=0;
   b1b2[0]=b1[0]*b2[0]; b1b2[1]=b1b2[0]; b1b2[2]=0; b1b2[3]=0;
   b2b2[0]=b2[0]*b2[0]; b2b2[1]=b2b2[0]; b2b2[2]=0; b2b2[3]=0;
@@ -722,7 +818,7 @@ int	main(int argc, char **argv)
     double rr = rmin + i*(rmax-rmin)/(Nr-1);
     std::vector<double> xir=zel[0].xiContributions(rr,ff,ff);
     double xitot= xir[0]+b1[0]*xir[1]+b2[0]*xir[2]
-                + b1b1[0]*xir[3]+b1b2[0]*xir[4]+b2b2[0]*xir[5];
+                + b1b1[0]*xir[3]+b1b2[0]*xir[4]+b2b2[0]*xir[5]+bs[0]*xir[6];
     std::cout<<std::fixed<<std::setw(10)<<std::setprecision(2)<<rr;
     for (int j=0; j<xir.size(); ++j)
       std::cout<<std::fixed<<std::setw(15)<<std::setprecision(8)
@@ -741,16 +837,19 @@ int	main(int argc, char **argv)
       double xi;
       std::vector<double> xir=zel[it].xiContributions(rr);
       xi=xir[0]+b1[it]*xir[1]+b2[it]*xir[2]
-        +b1b1[it]*xir[3]+b1b2[it]*xir[4]+b2b2[it]*xir[5];
+        +b1b1[it]*xir[3]+b1b2[it]*xir[4]+b2b2[it]*xir[5]
+        +bs[it]*xir[6];
       std::cout<<std::fixed<<std::setw(9)<<std::setprecision(4)<<xi*rr*rr;
     }
     for (int it=0; it<Ntype; ++it) {
       double xi0,xi2;
       std::vector<double> xis=zel[it].xiContributions(rr,f1[it],f2[it]);
       xi0=xis[0]+b1[it]*xis[1]+b2[it]*xis[2]
-         +b1b1[it]*xis[3]+b1b2[it]*xis[4]+b2b2[it]*xis[5];
-      xi2=xis[6]+b1[it]*xis[7]+b2[it]*xis[8]
-         +b1b1[it]*xis[9]+b1b2[it]*xis[10]+b2b2[it]*xis[11];
+         +b1b1[it]*xis[3]+b1b2[it]*xis[4]+b2b2[it]*xis[5]
+         +bs[it]*xis[6];
+      xi2=xis[7]+b1[it]*xis[8]+b2[it]*xis[9]
+         +b1b1[it]*xis[10]+b1b2[it]*xis[11]+b2b2[it]*xis[12]
+         +bs[it]*xis[13];
       std::cout<<std::fixed<<std::setw(9)<<std::setprecision(4)<<xi0*rr*rr;
       std::cout<<std::fixed<<std::setw(9)<<std::setprecision(4)<<xi2*rr*rr;
     }
