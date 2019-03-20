@@ -216,9 +216,9 @@ protected:
       switch (itype) {
         case 0: sk1=sk2=1.0;                     break;
         case 1: sk1=sk2=1.0-exp(-kk*kk*Rf*Rf/2); break;
-        case 2: sk1=sk2=    exp(-kk*kk*Rf*Rf/2); break;
+        case 2: sk1=sk2=   -exp(-kk*kk*Rf*Rf/2); break;
         case 3: sk1=    1.0-exp(-kk*kk*Rf*Rf/2);
-                sk2=        exp(-kk*kk*Rf*Rf/2); break;
+                sk2=       -exp(-kk*kk*Rf*Rf/2); break;
         default:
           std::cerr<<"Unknown itype="<<itype<<" in calcSigma2."<<std::endl;
           myexit(1);
@@ -258,22 +258,24 @@ protected:
     // Also, since it is useful, returns U(q) of Eq. (32) as qf[2]
     // and the linear xi as qf[3].
     int Nk=kLin.size();
-    int Nint=(int)(8*exp(kLin[Nk-1])*q+512);
-    if (Nint>=8192) Nint=8192;
+    int Nint=(int)(8*exp(kLin[Nk-1])*q+1024);
+    if (Nint>=20000) Nint=20000;
+    const double xmax=100*M_PI;
+    double lkmax=(log(xmax/(q+0.01))>kLin[Nk-1])?kLin[Nk-1]:log(xmax/(q+0.01));
+    double hh=(lkmax-kLin[0])/Nint;
     double sum0=0,sum1=0,sum2=0,sum3=0;
-    double hh=(kLin[Nk-1]-kLin[0])/Nint;
 #pragma omp parallel for reduction(+:sum0,sum1,sum2,sum3)
     for (int i=1; i<Nint; ++i) {
       double xx = kLin[0]+i*hh;
       double kk = exp(xx);
-      double ap = cos(M_PI/2.*exp(xx-kLin[Nk-1]));
+      double ap = cos(M_PI/2.*exp(xx-lkmax));
       double sk1,sk2;
       switch (itype) {
         case 0: sk1=sk2=1.0;                     break;
         case 1: sk1=sk2=1.0-exp(-kk*kk*Rf*Rf/2); break;
-        case 2: sk1=sk2=    exp(-kk*kk*Rf*Rf/2); break;
+        case 2: sk1=sk2=   -exp(-kk*kk*Rf*Rf/2); break;
         case 3: sk1=    1.0-exp(-kk*kk*Rf*Rf/2);
-                sk2=        exp(-kk*kk*Rf*Rf/2); break;
+                sk2=       -exp(-kk*kk*Rf*Rf/2); break;
         default:
           std::cerr<<"Unknown itype="<<itype<<" in calcQfuncs."<<std::endl;
           myexit(1);
@@ -715,7 +717,7 @@ int	hidden_main(const char pkfile[], const double ff,
   f1[0]=ff;  f1[1]=ff; f1[2]=ff; f1[3]=ff;
   f2[0]=ff;  f2[1]=ff; f2[2]=ff; f2[3]=ff;
 #endif
-  double fac[Ntype]; fac[0]=1; fac[1]=1; fac[2]=1; fac[3]=2;
+  double fac[Ntype]; fac[0]=1; fac[1]=1; fac[2]=1; fac[3]=-2;
 
   try {
     const int Nr=26;

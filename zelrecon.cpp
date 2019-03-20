@@ -215,9 +215,9 @@ protected:
       switch (itype) {
         case 0: sk1=sk2=1.0;                     break;
         case 1: sk1=sk2=1.0-exp(-kk*kk*Rf*Rf/2); break;
-        case 2: sk1=sk2=    exp(-kk*kk*Rf*Rf/2); break;
+        case 2: sk1=sk2=   -exp(-kk*kk*Rf*Rf/2); break;
         case 3: sk1=    1.0-exp(-kk*kk*Rf*Rf/2);
-                sk2=        exp(-kk*kk*Rf*Rf/2); break;
+                sk2=       -exp(-kk*kk*Rf*Rf/2); break;
         default:
           std::cerr<<"Unknown itype="<<itype<<" in calcSigma2."<<std::endl;
           myexit(1);
@@ -239,20 +239,22 @@ protected:
     // and the linear xi as qf[3].
     int wt=4; std::vector<double> sum(4);
     int Nk=kLin.size();
-    int Nint=(int)(8*exp(kLin[Nk-1])*q+512);
-    if (Nint>=8192) Nint=8192;
-    double hh=(kLin[Nk-1]-kLin[0])/Nint;
+    int Nint=(int)(8*exp(kLin[Nk-1])*q+1024);
+    if (Nint>=20000) Nint=20000;
+    const double xmax=100*M_PI;
+    double lkmax=(log(xmax/(q+0.01))>kLin[Nk-1])?kLin[Nk-1]:log(xmax/(q+0.01));
+    double hh=(lkmax-kLin[0])/Nint;
     for (int i=1; i<Nint; ++i) {
       double xx = kLin[0]+i*hh;
       double kk = exp(xx);
-      double ap = cos(M_PI/2.*exp(xx-kLin[Nk-1]));
+      double ap = cos(M_PI/2.*exp(xx-lkmax));
       double sk1,sk2;
       switch (itype) {
         case 0: sk1=sk2=1.0;                     break;
         case 1: sk1=sk2=1.0-exp(-kk*kk*Rf*Rf/2); break;
-        case 2: sk1=sk2=    exp(-kk*kk*Rf*Rf/2); break;
+        case 2: sk1=sk2=   -exp(-kk*kk*Rf*Rf/2); break;
         case 3: sk1=    1.0-exp(-kk*kk*Rf*Rf/2);
-                sk2=        exp(-kk*kk*Rf*Rf/2); break;
+                sk2=       -exp(-kk*kk*Rf*Rf/2); break;
         default:
           std::cerr<<"Unknown itype="<<itype<<" in calcQfuncs."<<std::endl;
           myexit(1);

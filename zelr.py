@@ -15,7 +15,6 @@ ff = 0.76
 
 class ZelRecon:
     """
-    ZelRecon:
     A Python class to conviently "wrap" calls to the
     Zeldovich reconstruction code.
     This uses temporary files to pass the information around.
@@ -26,15 +25,15 @@ class ZelRecon:
     #
     def __call__(self,pkfile,ff,F1,F2,Rf,Apar,Aperp):
         """
-        __call__(self,pkfile,ff,F1,F2,Rf,Apar,Aperp):
         Runs the code and returns a NumPy array containing
         the data returned by the code.
         Note: as currently configured returns s^2 xi_ell, not  xi_ell.
         """
-        ret = self.mylib.call_zelrecon(ctypes.c_char_p(pkfile),\
+        ret = self.mylib.call_zelrecon(\
+          ctypes.c_char_p(pkfile.encode('utf-8')),\
           ctypes.c_double(ff),ctypes.c_double(F1),ctypes.c_double(F2),\
           ctypes.c_double(Rf),ctypes.c_double(Apar),ctypes.c_double(Aperp),\
-          ctypes.c_char_p(self.tmpfn))
+          ctypes.c_char_p(self.tmpfn.encode('utf-8')))
         if (ret==0)&(os.path.isfile(self.tmpfn)):
             dd = np.loadtxt(self.tmpfn)
             os.remove(self.tmpfn)
@@ -42,18 +41,18 @@ class ZelRecon:
             outstr = "ZelRecon call failed with: "+pkfile+","+str(ff)+\
                      ","+str(F1)+","+str(F2)+","+str(Rf)+\
                      ","+str(Apar)+","+str(Aperp)
-            raise RuntimeError,outstr
+            raise(RuntimeError,outstr)
             dd = None
         return(dd)
         #
     def __init__(self):
         """
-        __init__(self):
+        Initialize the class.
         """
         # Basic initialization, including a temporary file
         # whose name is based on the current host, PPID and PID.
-        self.tmpfn = "zelrecon_%s_%d_%d.txt"%\
-          (socket.gethostname(),os.getppid(),os.getpid())
+        self.tmpfn = "zelrecon_{:s}_{:d}_{:d}.txt".\
+          format(socket.gethostname(),os.getppid(),os.getpid())
         self.mylib = ctypes.CDLL(os.getcwd()+"/zelrecon_ctypes.so")
     #
 
@@ -62,7 +61,6 @@ class ZelRecon:
 
 def peak_background_bias(nu):
     """
-    peak_background_bias(nu):
     Returns the Lagrangian biases, (b1,b2), given nu.
     This is helpful if we want to make our basis set f, nu.
     """
