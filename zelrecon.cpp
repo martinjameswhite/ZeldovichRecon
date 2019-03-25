@@ -667,14 +667,6 @@ public:
               shear += G[3*i+j]*upsilon;
             }
           shear *= 2;
-          double shear_v=0;
-          for (int i=0; i<3; ++i) {
-            double upsilon= qh[i]*qh[2]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
-                            2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
-                            qf[8]*qf[8]) + (i==2)*2*qf[7]*qf[7];
-            shear_v -= g[i]*upsilon;
-          }
-          shear_v *= 2;
           double V12=qf[9]*gq;
           // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 terms.
           xi[0] +=    pref;
@@ -768,18 +760,12 @@ public:
                 double upsilon= qh[i]*qh[j]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
                                 2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
                                 qf[8]*qf[8]) + (i==j)*2*qf[7]*qf[7];
-                shear += G[3*i+j]*upsilon;
+                upsilon *= (1+f1)*(i==2);
+                upsilon *= (1+f2)*(j==2);
+                shear   += G[3*i+j]*upsilon;
               }
             shear *= 2;
-            double shear_v=0;
-            for (int i=0; i<3; ++i) {
-              double upsilon= qh[i]*qh[2]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
-                              2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
-                              qf[8]*qf[8]) + (i==2)*2*qf[7]*qf[7];
-              shear_v -= g[i]*upsilon;
-            }
-            shear_v *= 2;
-            double V12=qf[9]*gq;
+            double V12=qf[9]*(gq+0.5*(f1+f2)*qh[2]*g[2]);
             // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 & shear terms.
             xi[0] +=    pref;
             xi[1] += -2*pref*Ug;
