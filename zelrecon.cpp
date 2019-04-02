@@ -615,10 +615,10 @@ public:
     // The integration is over x=q-r, in length and angle with the
     // azimuthal integral being trivial.
     const double xmin=0;
-    const double xmax=10*sqrt(sigma2);
+    const double xmax=15*sqrt(sigma2);
     const double rr[3]={0,0,rval};
     const double r2   =rval*rval;
-    const int    Nx=500;
+    const int    Nx=512;
     const double dx=(xmax-xmin)/Nx;
     std::vector<double> xi(10);
     for (int ixx=0; ixx<Nx; ++ixx) {
@@ -697,10 +697,10 @@ public:
     // The integration is over x=q-r, in length and angle with the
     // azimuthal integral being done explicitly.
     const double xmin=0;
-    const double xmax=10*sqrt(sigma2);
+    const double xmax=15*sqrt(sigma2);
     const double rr[3]={rval*sqrt(1-mu*mu),0,rval*mu};
     const double r2   =rval*rval;
-    const int    Nx=256,Nphi=32;
+    const int    Nx=512,Nphi=32;
     const double dx=(xmax-xmin)/Nx;
     const double dphi=2*M_PI/Nphi;
     std::vector<double> xi(10);
