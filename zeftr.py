@@ -24,7 +24,7 @@ class ZeftRecon:
     __version__ = "1.0"
     __email__  = "mwhite@berkeley.edu"
     #
-    def __call__(self,pkfile,ff,b1,b2,bs,Rf,Apar,Aperp,Aeft):
+    def __call__(self,pkfile,ff=0,b1=0,b2=0,bs=0,Rf=-1,Apar=1,Aperp=1,Aeft=0):
         """
         Runs the code and returns a NumPy array containing
         the data returned by the code.
