@@ -24,7 +24,7 @@ class ZeftRecon:
     __version__ = "1.0"
     __email__  = "mwhite@berkeley.edu"
     #
-    def __call__(self,pkfile,ff,F1,F2,Rf,Apar,Aperp,Aeft):
+    def __call__(self,pkfile,ff,b1,b2,bs,Rf,Apar,Aperp,Aeft):
         """
         Runs the code and returns a NumPy array containing
         the data returned by the code.
@@ -32,15 +32,16 @@ class ZeftRecon:
         """
         ret = self.mylib.call_zeft_recon(\
           ctypes.c_char_p(pkfile.encode('utf-8')),\
-          ctypes.c_double(ff),ctypes.c_double(F1),ctypes.c_double(F2),\
-          ctypes.c_double(Rf),ctypes.c_double(Apar),ctypes.c_double(Aperp),\
+          ctypes.c_double(ff),ctypes.c_double(b1),ctypes.c_double(b2),\
+          ctypes.c_double(bs),ctypes.c_double(Rf),\
+          ctypes.c_double(Apar),ctypes.c_double(Aperp),\
           ctypes.c_double(Aeft),ctypes.c_char_p(self.tmpfn.encode('utf-8')))
         if (ret==0)&(os.path.isfile(self.tmpfn)):
             dd = np.loadtxt(self.tmpfn)
             os.remove(self.tmpfn)
         else:
             outstr = "ZeftRecon call failed with: "+pkfile+","+str(ff)+\
-                     ","+str(F1)+","+str(F2)+","+str(Rf)+\
+                     ","+str(b1)+","+str(b2)+","+str(bs)+","+str(Rf)+\
                      ","+str(Apar)+","+str(Aperp)+","+str(Aeft)
             raise(RuntimeError,outstr)
             dd = None
@@ -48,7 +49,7 @@ class ZeftRecon:
         #
     def __init__(self):
         """
-        Initialize the class.
+        Initialize the class...very lightweight.
         """
         # Basic initialization, including a temporary file
         # whose name is based on the current host, PPID and PID.

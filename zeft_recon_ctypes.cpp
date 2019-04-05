@@ -150,6 +150,8 @@ protected:
   const static int	NqTable=2048,NkTable=2048;
   GaussLegendre		gl;
   std::vector<double>	kLin,pLin,etaPer,etaPar,uVal,xiLin;
+  std::vector<double>   J2Lin,J3Lin,J4Lin;
+  std::vector<double>   V12Lin,chiLin,zetLin;
   double		qmin,qmax,Rf,delta,dkinv,sigma2,eftNorm;
   std::vector<double> sphBess(const double x) {
     // Returns j0(x) and j1(x)/x.
@@ -262,7 +264,7 @@ protected:
     if (Nint>=20000) Nint=20000;
     const double xmax=100*M_PI;
     double lkmax=(log(xmax/(q+0.01))>kLin[Nk-1])?kLin[Nk-1]:log(xmax/(q+0.01));
-    double hh=(lkmax-kLin[0])/Nint;
+    const double hh=(lkmax-kLin[0])/Nint;
     double sum0=0,sum1=0,sum2=0,sum3=0;
 #pragma omp parallel for reduction(+:sum0,sum1,sum2,sum3)
     for (int i=1; i<Nint; ++i) {
@@ -298,6 +300,72 @@ protected:
     res[3] = sum3 * hh/3.0/(2*M_PI*M_PI);
     return(res);
   }
+  std::vector<double> calc_Jn(const double q) {
+    // Computes the \mathcal{J}_n integrals, which are used in the shear terms.
+    const int Nk=kLin.size();
+    const int Nint=25000;
+    const double xmax=100*M_PI;
+    double lkmax=(log(xmax/(q+0.01))>kLin[Nk-1])?kLin[Nk-1]:log(xmax/(q+0.01));
+    const double hh=(lkmax-kLin[0])/Nint;
+    double sum1=0,sum2=0,sum3=0,sum4=0,sum5=0,sum6=0,sum7=0,sum8=0,sum9=0;
+#pragma omp parallel for reduction(+:sum1,sum2,sum3,sum4,sum5,sum6,sum7,sum8,sum9)
+    for (int i=1; i<Nint; ++i) {
+      double xx = kLin[0]+i*hh;
+      double ap = cos(M_PI/2.*exp(xx-lkmax));
+      double kk = exp(xx);
+      double k2 = kk*kk;
+      double kq = kk*q;
+      int    jj = (int)(i*hh*dkinv);
+      if (jj>=pLin.size()-2) jj=pLin.size()-2;
+      double pk = exp(pLin[jj]+(xx-kLin[jj])*
+                     (pLin[jj+1]-pLin[jj])/(kLin[jj+1]-kLin[jj]));
+      std::vector<double> jl=sphBess(kq);
+      double j0,j1,j2,j3,j4;
+      j0=jl[0];
+      if (kq<0.9) {
+        double kq2 = kq*kq;
+        j1 = kq *(1./3.+ kq2*(-1./30.+kq2*(1./840.-kq2/45360.)));
+        j2 = kq2*(1./15.+kq2*(-1./210.+kq2*(1./7560-kq2/498960.)));
+        j3 = kq *kq2*(1./105.+kq2*(-1./1890+kq2*(1./83160-kq2/6486480.)));
+        j4 = kq2*kq2*(1./945.+kq2*(-1./20790.+kq2/1081080.));
+      }
+      else {
+        j1 =    jl[1]*kq;
+        j2 = 3.*jl[1]  -jl[0];
+        j3 = 5.*j2/(kq)-j1;
+        j4 = 7.*j3/(kq)-j2;
+      }
+      int wt= 2+2*(i%2);
+      sum1 += k2*pk*kk*(j2)*wt;
+      sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt * ap;
+      sum3 += k2*pk*(-1./5.*j1-1./5.*j3)*wt;
+      sum4 += k2*pk*(j3)*wt;
+      sum5 += k2*pk*kk*(-14*j0-40*j2+9*j4)/315.*wt*ap;
+      sum6 += k2*pk*kk*(  7*j0+10*j2+3*j4)/105.*wt*ap;
+      sum7 += k2*pk*kk*(        4*j2-3*j4)/ 21.*wt*ap;
+      sum8 += k2*pk*kk*(       -3*j2-3*j4)/ 21.*wt*ap;
+      sum9 += k2*pk*kk*(               j4)     *wt*ap;
+    }
+    sum5 *= hh/3.0/(2*M_PI*M_PI);
+    sum6 *= hh/3.0/(2*M_PI*M_PI);
+    sum7 *= hh/3.0/(2*M_PI*M_PI);
+    sum8 *= hh/3.0/(2*M_PI*M_PI);
+    sum9 *= hh/3.0/(2*M_PI*M_PI);
+    double zeta= sum5*( 9*sum5+12*sum6+12*sum7+ 8*sum8+ 2*sum9)+
+                 sum6*(        24*sum6+ 8*sum7+32*sum8+ 4*sum9)+
+                 sum7*(               + 8*sum7+16*sum8+ 4*sum9)+
+                 sum8*(                        24*sum8+ 8*sum9)+
+                 sum9*(                                   sum9);
+    std::vector<double> sum(8);
+    sum[1] = sum1 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_1
+    sum[2] = sum2 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_2
+    sum[3] = sum3 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_3
+    sum[4] = sum4 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_4
+    sum[5] = 4    * sum[1]*sum[2];              // V_i^{12}
+    sum[6] = 4./3.* sum[1]*sum[1];              // chi12
+    sum[7] = 2*zeta;                            // zeta
+    return(sum);
+  }
   void tabulateQfuncs(const int itype=0) {
     // Finally, tabulate sigma2, etaPer, etaPar, etc.
     qmin = 1.0/exp(kLin[NkTable-1]);  if (qmin<0.2) qmin=0.2;
@@ -311,27 +379,52 @@ protected:
       etaPar.resize(Nsample);
         uVal.resize(Nsample);
        xiLin.resize(Nsample);
+       J2Lin.resize(Nsample);
+       J3Lin.resize(Nsample);
+       J4Lin.resize(Nsample);
+      V12Lin.resize(Nsample);
+      chiLin.resize(Nsample);
+      zetLin.resize(Nsample);
     } catch(std::exception& e) {myexception(e);}
     delta=(qmax-qmin)/(Nsample-1);
     for (int i=0; i<Nsample; ++i) {
       double qq = qmin+i*delta;
       std::vector<double> qf=calcQfuncs(qq,itype);
+      std::vector<double> Jn=calc_Jn(   qq);
        qvals[i] = qq;
       etaPer[i] = qf[0];
       etaPar[i] = qf[1];
       uVal[  i] = qf[2];
       xiLin[ i] = qf[3] * qq*qq;
+      J2Lin[ i] = Jn[2];
+      J3Lin[ i] = Jn[3];
+      J4Lin[ i] = Jn[4];
+      V12Lin[i] = Jn[5];
+      chiLin[i] = Jn[6];
+      zetLin[i] = Jn[7];
     }
     // then fit splines and retabulate it onto a finer grid.
     Spline etaPerSpline(qvals,etaPer);
     Spline etaParSpline(qvals,etaPar);
     Spline   uValSpline(qvals,uVal);
     Spline  xiLinSpline(qvals,xiLin);
+    Spline  J2LinSpline(qvals,J2Lin);
+    Spline  J3LinSpline(qvals,J3Lin);
+    Spline  J4LinSpline(qvals,J4Lin);
+    Spline V12LinSpline(qvals,V12Lin);
+    Spline chiLinSpline(qvals,chiLin);
+    Spline zetLinSpline(qvals,zetLin);
     try {
       etaPer.resize(NqTable);
       etaPar.resize(NqTable);
         uVal.resize(NqTable);
        xiLin.resize(NqTable);
+       J2Lin.resize(NqTable);
+       J3Lin.resize(NqTable);
+       J4Lin.resize(NqTable);
+      V12Lin.resize(NqTable);
+      chiLin.resize(NqTable);
+      zetLin.resize(NqTable);
     } catch(std::exception& e) {myexception(e);}
     sigma2 = calcSigma2(itype);
     delta=(qmax-qmin)/(NqTable-1);
@@ -341,33 +434,53 @@ protected:
       etaPar[i] = etaParSpline(qq);
       uVal[  i] =   uValSpline(qq);
       xiLin[ i] =  xiLinSpline(qq)/qq/qq;
+      J2Lin[ i] =  J2LinSpline(qq);
+      J3Lin[ i] =  J3LinSpline(qq);
+      J4Lin[ i] =  J4LinSpline(qq);
+      V12Lin[i] = V12LinSpline(qq);
+      chiLin[i] = chiLinSpline(qq);
+      zetLin[i] = zetLinSpline(qq);
     }
   }
   std::vector<double> interpQfuncs(const double q) {
     // Does a linear interpolation to return etaPer and etaPar.
     // Also returns U(q) and xi_lin.
-    std::vector<double> qf(4);
+    std::vector<double> qf(12);
     int k=(NqTable-1)*(q-qmin)/(qmax-qmin);
     if (q>qmin && q<qmax) {
       double dq = (q-(qmin+k*delta))/delta;
-      qf[0]=etaPer[k]+dq*(etaPer[k+1]-etaPer[k]);
-      qf[1]=etaPar[k]+dq*(etaPar[k+1]-etaPar[k]);
-      qf[2]=  uVal[k]+dq*(  uVal[k+1]-  uVal[k]);
-      qf[3]= xiLin[k]+dq*( xiLin[k+1]- xiLin[k]);
+      qf[ 0]=etaPer[k]+dq*(etaPer[k+1]-etaPer[k]);
+      qf[ 1]=etaPar[k]+dq*(etaPar[k+1]-etaPar[k]);
+      qf[ 2]=  uVal[k]+dq*(  uVal[k+1]-  uVal[k]);
+      qf[ 3]= xiLin[k]+dq*( xiLin[k+1]- xiLin[k]);
+      qf[ 4]= 0;
+      qf[ 5]= 0;
+      qf[ 6]= J2Lin[k]+dq*( J2Lin[k+1]- J2Lin[k]);
+      qf[ 7]= J3Lin[k]+dq*( J3Lin[k+1]- J3Lin[k]);
+      qf[ 8]= J4Lin[k]+dq*( J4Lin[k+1]- J4Lin[k]);
+      qf[ 9]=V12Lin[k]+dq*(V12Lin[k+1]-V12Lin[k]);
+      qf[10]=chiLin[k]+dq*(chiLin[k+1]-chiLin[k]);
+      qf[11]=zetLin[k]+dq*(zetLin[k+1]-zetLin[k]);
     }
     else {
       const double TINY=1e-10;
       if (q<qmin) {
         qf[0]=sigma2 - TINY;
         qf[1]=sigma2 - TINY;
-        qf[2]=0;
-        qf[3]=0;
+        qf[2]=qf[3]=qf[4]=qf[5]=qf[6]=qf[7]=qf[8]=qf[9]=qf[10]=qf[11]=0;
       }
       if (q>qmax) {
-        qf[0]=etaPer[NqTable-1];
-        qf[1]=etaPar[NqTable-1];
-        qf[2]=uVal[  NqTable-1];
-        qf[3]=xiLin[ NqTable-1];
+        qf[ 0]=etaPer[NqTable-1];
+        qf[ 1]=etaPar[NqTable-1];
+        qf[ 2]=uVal[  NqTable-1];
+        qf[ 3]=xiLin[ NqTable-1];
+        qf[ 4]=qf[5]=0;
+        qf[ 6]=J2Lin[ NqTable-1];
+        qf[ 7]=J3Lin[ NqTable-1];
+        qf[ 8]=J4Lin[ NqTable-1];
+        qf[ 9]=V12Lin[NqTable-1];
+        qf[10]=chiLin[NqTable-1];
+        qf[11]=zetLin[NqTable-1];
       }
     }
     return(qf);
@@ -511,13 +624,14 @@ public:
     // The integration is over x=q-r, in length and angle with the
     // azimuthal integral being trivial.
     const double xmin=0;
-    const double xmax=10*sqrt(sigma2);
+    const double xmax=15*sqrt(sigma2);
     const double rr[3]={0,0,rval};
     const double r2   =rval*rval;
-    const int    Nx=500;
+    const int    Nx=512;
     const double dx=(xmax-xmin)/Nx;
-    double sum0=0,sum1=0,sum2=0,sum3=0,sum4=0,sum5=0;
-#pragma omp parallel for reduction(+:sum0,sum1,sum2,sum3,sum4,sum5)
+    double sum0=0,sum1=0,sum2=0,sum3=0,sum4=0,
+           sum5=0,sum6=0,sum7=0,sum8=0,sum9=0;
+#pragma omp parallel for reduction(+:sum0,sum1,sum2,sum3,sum4,sum5,sum6,sum7,sum8,sum9)
     for (int ixx=0; ixx<Nx; ++ixx) {
       double xx=xmin+(ixx+0.5)*dx;
       double x2=xx*xx;
@@ -547,13 +661,25 @@ public:
           for (int i=0; i<3; ++i)
             for (int j=0; j<3; ++j)
               G[3*i+j]=Ainv[3*i+j]-g[i]*g[j];
-          double Ug,UUG,trG;  Ug=UUG=trG=0;
+          double Ug,UUG,gq,trG;  Ug=UUG=gq=trG=0;
           for (int i=0; i<3; ++i) {
             Ug += (qf[2]*qh[i])*g[i];
+            gq += g[i]*qh[i];
             trG+= G[3*i+i];
             for (int j=0; j<3; ++j)
               UUG += qf[2]*qf[2]*qh[i]*qh[j]*G[3*i+j];
           }
+          // The <s^2 Delta Delta> term:
+          double shear=0;
+          for (int i=0; i<3; ++i)
+            for (int j=0; j<3; ++j) {
+              double upsilon= qh[i]*qh[j]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
+                              2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
+                              qf[8]*qf[8]) + (i==j)*2*qf[7]*qf[7];
+              shear += G[3*i+j]*upsilon;
+            }
+          shear *= 2;
+          double V12=qf[9]*gq;
           // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 terms.
           sum0 +=    pref*(1+Aeft*trG*eftNorm);
           sum1 += -2*pref*Ug;
@@ -561,11 +687,16 @@ public:
           sum3 +=    pref*(qf[3]-UUG);
           sum4 += -2*pref*qf[3]*Ug;
           sum5 +=0.5*pref*qf[3]*qf[3];
+          sum6 +=   -pref*shear;
+          sum7 +=   -pref*2*V12;
+          sum8 +=    pref*qf[10];
+          sum9 +=    pref*qf[11];
         }
       }
     }
-    std::vector<double> xi(6);
-    xi[0]=sum0;xi[1]=sum1;xi[2]=sum2;xi[3]=sum3;xi[4]=sum4;xi[5]=sum5;
+    std::vector<double> xi(10);
+    xi[0]=sum0;xi[1]=sum1;xi[2]=sum2;xi[3]=sum3;xi[4]=sum4;
+    xi[5]=sum5;xi[6]=sum6;xi[7]=sum7;xi[8]=sum8;xi[9]=sum9;
     for (int j=0; j<xi.size(); ++j) {
       xi[j] *= dx;	// Convert sum to integral.
       xi[j] *= 2*M_PI;	// The azimuthal integral.
@@ -582,14 +713,15 @@ public:
     // The integration is over x=q-r, in length and angle with the
     // azimuthal integral being done explicitly.
     const double xmin=0;
-    const double xmax=10*sqrt(sigma2);
+    const double xmax=15*sqrt(sigma2);
     const double rr[3]={rval*sqrt(1-mu*mu),0,rval*mu};
     const double r2   =rval*rval;
-    const int    Nx=256,Nphi=32;
+    const int    Nx=512,Nphi=32;
     const double dx=(xmax-xmin)/Nx;
     const double dphi=2*M_PI/Nphi;
-    double sum0=0,sum1=0,sum2=0,sum3=0,sum4=0,sum5=0;
-#pragma omp parallel for reduction(+:sum0,sum1,sum2,sum3,sum4,sum5)
+    double sum0=0,sum1=0,sum2=0,sum3=0,sum4=0,
+           sum5=0,sum6=0,sum7=0,sum8=0,sum9=0;
+#pragma omp parallel for reduction(+:sum0,sum1,sum2,sum3,sum4,sum5,sum6,sum7,sum8,sum9)
     for (int ixx=0; ixx<Nx; ++ixx) {
       double xx=xmin+(ixx+0.5)*dx;
       double x2=xx*xx;
@@ -632,26 +764,45 @@ public:
             for (int i=0; i<3; ++i)
               for (int j=0; j<3; ++j)
                 G[3*i+j]=Ainv[3*i+j]-g[i]*g[j];
-            double Ug,UUG,trG;  Ug=UUG=trG=0;
+            double Ug,UUG,gq,trG;  Ug=UUG=gq=trG=0;
             for (int i=0; i<3; ++i) {
               Ug += U[i]*g[i];
+              gq += g[i]*qh[i];
               trG+= G[3*i+i];
               for (int j=0; j<3; ++j)
                 UUG += U[i]*U[j]*G[3*i+j];
             }
-            // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 terms.
+            // The <s^2 Delta Delta> term:
+            double shear=0;
+            for (int i=0; i<3; ++i)
+              for (int j=0; j<3; ++j) {
+                double upsilon= qh[i]*qh[j]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
+                                2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
+                                qf[8]*qf[8]) + (i==j)*2*qf[7]*qf[7];
+                upsilon *= 1+f1*(i==2);
+                upsilon *= 1+f2*(j==2);
+                shear   += G[3*i+j]*upsilon;
+              }
+            shear *= 2;
+            double V12=qf[9]*(gq+0.5*(f1+f2)*qh[2]*g[2]);
+            // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 & shear terms.
             sum0 +=    pref*(1+Aeft*trG*eftNorm);
             sum1 += -2*pref*Ug;
             sum2 +=   -pref*UUG;
             sum3 +=    pref*(qf[3]-UUG);
             sum4 += -2*pref*qf[3]*Ug;
             sum5 +=0.5*pref*qf[3]*qf[3];
+            sum6 +=   -pref*shear;
+            sum7 +=   -pref*2*V12;
+            sum8 +=    pref*qf[10];
+            sum9 +=    pref*qf[11];
           }
         }
       }
     }
-    std::vector<double> xi(6);
-    xi[0]=sum0;xi[1]=sum1;xi[2]=sum2;xi[3]=sum3;xi[4]=sum4;xi[5]=sum5;
+    std::vector<double> xi(10);
+    xi[0]=sum0;xi[1]=sum1;xi[2]=sum2;xi[3]=sum3;xi[4]=sum4;
+    xi[5]=sum5;xi[6]=sum6;xi[7]=sum7;xi[8]=sum8;xi[9]=sum9;
     for (int j=0; j<xi.size(); ++j) {
       xi[j] *= dx*dphi;	// Convert sum to integral.
     }
@@ -671,7 +822,7 @@ public:
     GaussLegendre gg = GaussLegendre(2*Nmu);	// Must be even.
     // For even lengths, can sum over half of the points.
     std::vector<double> xiell;
-    try{xiell.resize(12);}catch(std::exception& e) {myexception(e);}
+    try{xiell.resize(20);}catch(std::exception& e) {myexception(e);}
     for (int i=0; i<Nmu; ++i) {
       double lfac=sqrt(Aperp2*(1-gg.x[i]*gg.x[i])+
                        Apar2 *   gg.x[i]*gg.x[i] );
@@ -695,7 +846,8 @@ public:
 
 
 int	hidden_main(const char pkfile[], const double ff,
-                    const double F1, const double F2, const double Rf,
+                    const double F1, const double F2, const double Fs,
+                    const double Rf,
                     const double Apar, const double Aperp,
                     const double Aeft, const char outfile[])
 {
@@ -704,12 +856,17 @@ int	hidden_main(const char pkfile[], const double ff,
   // can just refer to them in the loops below.
   const int Ntype=4;
   double b1[Ntype],b2[Ntype],b1b1[Ntype],b1b2[Ntype],b2b2[Ntype];
+  double bs[Ntype],b1bs[Ntype],b2bs[Ntype],bsbs[Ntype];
   double f1[Ntype],f2[Ntype];
-  b1[0] = F1;            b1[1]=  b1[0];   b1[2]=0;   b1[3]=0.5*b1[0];
-  b2[0] = F2;            b2[1]=  b2[0];   b2[2]=0;   b2[3]=0.5*b2[0];
+  b1[0] = F1;          b1[1]=    b1[0]; b1[2]  =0; b1[3]=0.5*b1[0];
+  b2[0] = F2;          b2[1]=    b2[0]; b2[2]  =0; b2[3]=0.5*b2[0];
+  bs[0] = Fs;          bs[1]=    bs[0]; bs[2]  =0; bs[3]=0.5*bs[0];
   b1b1[0]=b1[0]*b1[0]; b1b1[1]=b1b1[0]; b1b1[2]=0; b1b1[3]=0;
   b1b2[0]=b1[0]*b2[0]; b1b2[1]=b1b2[0]; b1b2[2]=0; b1b2[3]=0;
   b2b2[0]=b2[0]*b2[0]; b2b2[1]=b2b2[0]; b2b2[2]=0; b2b2[3]=0;
+  b1bs[0]=b1[0]*bs[0]; b1bs[1]=b1bs[0]; b1bs[2]=0; b1bs[3]=0;
+  b2bs[0]=b2[0]*bs[0]; b2bs[1]=b2bs[0]; b2bs[2]=0; b2bs[3]=0;
+  bsbs[0]=bs[0]*bs[0]; bsbs[1]=bsbs[0]; bsbs[2]=0; bsbs[3]=0;
 #ifdef	NOSHIFTRANDOM
   f1[0]=ff;  f1[1]=ff; f1[2]= 0; f1[3]=ff;
   f2[0]=ff;  f2[1]=ff; f2[2]= 0; f2[3]= 0;
@@ -746,9 +903,11 @@ int	hidden_main(const char pkfile[], const double ff,
         std::vector<double> xis
             = zel.xiContributions(rr,f1[0],f2[0],Apar,Aperp,Aeft);
         xi0 = xis[0]+b1[0]*xis[1]+b2[0]*xis[2]
-              +b1b1[0]*xis[3]+b1b2[0]*xis[4]+b2b2[0]*xis[5];
-        xi2 = xis[6]+b1[0]*xis[7]+b2[0]*xis[8]
-              +b1b1[0]*xis[9]+b1b2[0]*xis[10]+b2b2[0]*xis[11];
+              +b1b1[0]*xis[3]+b1b2[0]*xis[4]+b2b2[0]*xis[5]
+              +bs[0]*xis[6]+b1bs[0]*xis[7]+b2bs[0]*xis[8]+bsbs[0]*xis[9];
+        xi2 = xis[10]+b1[0]*xis[11]+b2[0]*xis[12]
+         +b1b1[0]*xis[13]+b1b2[0]*xis[14]+b2b2[0]*xis[15]
+         +bs[0]*xis[16]+b1bs[0]*xis[17]+b2bs[0]*xis[18]+bsbs[0]*xis[19];
         fs<<std::fixed<<std::setw(12)<<std::setprecision(5)<<xi0*rr*rr;
         fs<<std::fixed<<std::setw(12)<<std::setprecision(5)<<xi2*rr*rr;
         fs<<std::endl;
@@ -768,9 +927,12 @@ int	hidden_main(const char pkfile[], const double ff,
           std::vector<double> xis
                = zel[it].xiContributions(rr,f1[it],f2[it],Apar,Aperp,Aeft);
           xi0 += (xis[0]+b1[it]*xis[1]+b2[it]*xis[2]
-                 +b1b1[it]*xis[3]+b1b2[it]*xis[4]+b2b2[it]*xis[5])*fac[it];
-          xi2 += (xis[6]+b1[it]*xis[7]+b2[it]*xis[8]
-                 +b1b1[it]*xis[9]+b1b2[it]*xis[10]+b2b2[it]*xis[11])*fac[it];
+                 +b1b1[it]*xis[3]+b1b2[it]*xis[4]+b2b2[it]*xis[5]+bs[it]*xis[6]
+                 +b1bs[it]*xis[7]+b2bs[it]*xis[8]+bsbs[it]*xis[9])*fac[it];
+          xi2 += (xis[10]+b1[it]*xis[11]+b2[it]*xis[12]
+                 +b1b1[it]*xis[13]+b1b2[it]*xis[14]+b2b2[it]*xis[15]
+                 +bs[it]*xis[16]+b1bs[it]*xis[17]+b2bs[it]*xis[18]
+                 +bsbs[it]*xis[19])*fac[it];
         }
         fs<<std::fixed<<std::setw(12)<<std::setprecision(5)<<xi0*rr*rr;
         fs<<std::fixed<<std::setw(12)<<std::setprecision(5)<<xi2*rr*rr;
@@ -790,12 +952,12 @@ int	hidden_main(const char pkfile[], const double ff,
 
 extern "C" {
 
-int     call_zeft_recon(const char pkfile[],
-                        const double ff, const double F1,   const double F2,
+int     call_zeft_recon(const char pkfile[], const double ff,
+                        const double b1, const double b2, const double bs,
                         const double Rf, const double Apar, const double Aperp,
                         const double Aeft, const char outfile[]) {
   int ret;
-  ret = hidden_main(pkfile,ff,F1,F2,Rf,Apar,Aperp,Aeft,outfile);
+  ret = hidden_main(pkfile,ff,b1,b2,bs,Rf,Apar,Aperp,Aeft,outfile);
   return(ret);
 }
 
