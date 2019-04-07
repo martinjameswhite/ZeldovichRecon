@@ -8,7 +8,7 @@ import ctypes
 import os
 
 # Find out where we are.
-fullpath = os.path.abspath(__file__).rstrip('zeftr.py')
+fullpath = os.path.dirname(__file__)
 
 # Some global variables, can be used by other codes
 # calling ZelRecon as "defaults".
@@ -59,7 +59,7 @@ class ZeftRecon:
         self.tmpfn = "zeft_recon_{:s}_{:d}_{:d}.txt".\
           format(socket.gethostname(),os.getppid(),os.getpid())
         #self.mylib = ctypes.CDLL(os.getcwd()+"/zeft_recon_ctypes.so")
-        self.mylib = ctypes.CDLL(fullpath+"zeft_recon_ctypes.so")
+        self.mylib = ctypes.CDLL(fullpath+"/zeft_recon_ctypes.so")
     #
 
 
