@@ -323,9 +323,6 @@ protected:
         j3 = 5.*j2/(kq)-j1;
         j4 = 7.*j3/(kq)-j2;
       }
-      //
-      // Still need to include smoothing terms here.
-      //
       int wt= 2+2*(i%2);
       sum1 += k2*pk*kk*(j2)*wt;
       sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt*sk2 * ap;
