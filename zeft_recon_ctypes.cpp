@@ -784,7 +784,7 @@ public:
                 shear   += G[3*i+j]*upsilon;
               }
             shear *= 2;
-            double V12=qf[9]*(gq+0.5*(f1+f2)*qh[2]*g[2]);
+            double V12=qf[9]*(gq+f2*qh[2]*g[2]);
             // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 & shear terms.
             sum0 +=    pref*(1+Aeft*trG*eftNorm);
             sum1 += -2*pref*Ug;
