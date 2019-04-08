@@ -278,7 +278,7 @@ protected:
     sum[3] *= hh/3.0/(2*M_PI*M_PI);
     return(sum);
   }
-  std::vector<double> calc_Jn(const double q) {
+  std::vector<double> calc_Jn(const double q, const int itype) {
     // Computes the \mathcal{J}_n integrals, which are used in the shear terms.
     const int Nk=kLin.size();
     const int Nint=25000;
@@ -292,6 +292,17 @@ protected:
       double kk = exp(xx);
       double k2 = kk*kk;
       double kq = kk*q;
+      double sk1,sk2;
+      switch (itype) {
+        case 0: sk1=sk2=1.0;                     break;
+        case 1: sk1=sk2=1.0-exp(-kk*kk*Rf*Rf/2); break;
+        case 2: sk1=sk2=   -exp(-kk*kk*Rf*Rf/2); break;
+        case 3: sk1=    1.0-exp(-kk*kk*Rf*Rf/2);
+                sk2=       -exp(-kk*kk*Rf*Rf/2); break;
+        default:
+          std::cerr<<"Unknown itype="<<itype<<" in calcQfuncs."<<std::endl;
+          myexit(1);
+      }
       int    jj = (int)(i*hh*dkinv);
       if (jj>=pLin.size()-2) jj=pLin.size()-2;
       double pk = exp(pLin[jj]+(xx-kLin[jj])*
@@ -299,6 +310,9 @@ protected:
       std::vector<double> jl=sphBess(kq);
       double j0,j1,j2,j3,j4;
       j0=jl[0];
+      //
+      // Still need to include smoothing terms here.
+      //
       if (kq<0.9) {
         double kq2 = kq*kq;
         j1 = kq *(1./3.+ kq2*(-1./30.+kq2*(1./840.-kq2/45360.)));
@@ -367,7 +381,7 @@ protected:
     for (int i=0; i<Nsample; ++i) {
       double qq = qmin+i*delta;
       std::vector<double> qf=calcQfuncs(qq,itype);
-      std::vector<double> Jn=calc_Jn(   qq);
+      std::vector<double> Jn=calc_Jn(   qq,itype);
        qvals[i] = qq;
       etaPer[i] = qf[0];
       etaPar[i] = qf[1];
