@@ -286,6 +286,7 @@ protected:
     double lkmax=(log(xmax/(q+0.01))>kLin[Nk-1])?kLin[Nk-1]:log(xmax/(q+0.01));
     const double hh=(lkmax-kLin[0])/Nint;
     double sum1=0,sum2=0,sum3=0,sum4=0,sum5=0,sum6=0,sum7=0,sum8=0,sum9=0;
+    double sum2p=0;
     for (int i=1; i<Nint; ++i) {
       double xx = kLin[0]+i*hh;
       double ap = cos(M_PI/2.*exp(xx-lkmax));
