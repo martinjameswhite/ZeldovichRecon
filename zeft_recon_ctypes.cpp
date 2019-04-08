@@ -300,7 +300,7 @@ protected:
     res[3] = sum3 * hh/3.0/(2*M_PI*M_PI);
     return(res);
   }
-  std::vector<double> calc_Jn(const double q) {
+  std::vector<double> calc_Jn(const double q, const int itype) {
     // Computes the \mathcal{J}_n integrals, which are used in the shear terms.
     const int Nk=kLin.size();
     const int Nint=25000;
@@ -315,6 +315,17 @@ protected:
       double kk = exp(xx);
       double k2 = kk*kk;
       double kq = kk*q;
+      double sk1,sk2;
+      switch (itype) {
+        case 0: sk1=sk2=1.0;                     break;
+        case 1: sk1=sk2=1.0-exp(-kk*kk*Rf*Rf/2); break;
+        case 2: sk1=sk2=   -exp(-kk*kk*Rf*Rf/2); break;
+        case 3: sk1=    1.0-exp(-kk*kk*Rf*Rf/2);
+                sk2=       -exp(-kk*kk*Rf*Rf/2); break;
+        default:
+          std::cerr<<"Unknown itype="<<itype<<" in calcQfuncs."<<std::endl;
+          myexit(1);
+      }
       int    jj = (int)(i*hh*dkinv);
       if (jj>=pLin.size()-2) jj=pLin.size()-2;
       double pk = exp(pLin[jj]+(xx-kLin[jj])*
@@ -337,9 +348,9 @@ protected:
       }
       int wt= 2+2*(i%2);
       sum1 += k2*pk*kk*(j2)*wt;
-      sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt * ap;
-      sum3 += k2*pk*(-1./5.*j1-1./5.*j3)*wt;
-      sum4 += k2*pk*(j3)*wt;
+      sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt*sk2 * ap;
+      sum3 += k2*pk*(-1./5.*j1-1./5.*j3)*wt*sk2;
+      sum4 += k2*pk*(j3)*sk2*wt;
       sum5 += k2*pk*kk*(-14*j0-40*j2+9*j4)/315.*wt*ap;
       sum6 += k2*pk*kk*(  7*j0+10*j2+3*j4)/105.*wt*ap;
       sum7 += k2*pk*kk*(        4*j2-3*j4)/ 21.*wt*ap;
@@ -390,7 +401,7 @@ protected:
     for (int i=0; i<Nsample; ++i) {
       double qq = qmin+i*delta;
       std::vector<double> qf=calcQfuncs(qq,itype);
-      std::vector<double> Jn=calc_Jn(   qq);
+      std::vector<double> Jn=calc_Jn(   qq,itype);
        qvals[i] = qq;
       etaPer[i] = qf[0];
       etaPar[i] = qf[1];

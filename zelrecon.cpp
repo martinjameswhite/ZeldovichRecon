@@ -286,7 +286,6 @@ protected:
     double lkmax=(log(xmax/(q+0.01))>kLin[Nk-1])?kLin[Nk-1]:log(xmax/(q+0.01));
     const double hh=(lkmax-kLin[0])/Nint;
     double sum1=0,sum2=0,sum3=0,sum4=0,sum5=0,sum6=0,sum7=0,sum8=0,sum9=0;
-    double sum2p=0;
     for (int i=1; i<Nint; ++i) {
       double xx = kLin[0]+i*hh;
       double ap = cos(M_PI/2.*exp(xx-lkmax));
@@ -329,10 +328,9 @@ protected:
       //
       int wt= 2+2*(i%2);
       sum1 += k2*pk*kk*(j2)*wt;
-      sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt * ap;
-      sum2p+= k2*pk*(2./15.*j1-1./5.*j3)*wt*sk2 * ap;
-      sum3 += k2*pk*(-1./5.*j1-1./5.*j3)*wt;
-      sum4 += k2*pk*(j3)*wt;
+      sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt*sk2 * ap;
+      sum3 += k2*pk*(-1./5.*j1-1./5.*j3)*wt*sk2;
+      sum4 += k2*pk*(j3)*sk2*wt;
       sum5 += k2*pk*kk*(-14*j0-40*j2+9*j4)/315.*wt*ap;
       sum6 += k2*pk*kk*(  7*j0+10*j2+3*j4)/105.*wt*ap;
       sum7 += k2*pk*kk*(        4*j2-3*j4)/ 21.*wt*ap;
@@ -354,8 +352,7 @@ protected:
     sum[2] = sum2 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_2
     sum[3] = sum3 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_3
     sum[4] = sum4 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_4
-    sum2p  = sum2p* hh/3.0/(2*M_PI*M_PI);
-    sum[5] = 4    * sum[1]*sum2p;               // V_i^{12}
+    sum[5] = 4    * sum[1]*sum[2];              // V_i^{12}
     sum[6] = 4./3.* sum[1]*sum[1];              // chi12
     sum[7] = 2*zeta;                            // zeta
     return(sum);
