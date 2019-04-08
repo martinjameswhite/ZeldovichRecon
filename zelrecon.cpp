@@ -310,9 +310,6 @@ protected:
       std::vector<double> jl=sphBess(kq);
       double j0,j1,j2,j3,j4;
       j0=jl[0];
-      //
-      // Still need to include smoothing terms here.
-      //
       if (kq<0.9) {
         double kq2 = kq*kq;
         j1 = kq *(1./3.+ kq2*(-1./30.+kq2*(1./840.-kq2/45360.)));
@@ -326,9 +323,13 @@ protected:
         j3 = 5.*j2/(kq)-j1;
         j4 = 7.*j3/(kq)-j2;
       }
+      //
+      // Still need to include smoothing terms here.
+      //
       int wt= 2+2*(i%2);
       sum1 += k2*pk*kk*(j2)*wt;
       sum2 += k2*pk*(2./15.*j1-1./5.*j3)*wt * ap;
+      sum2p+= k2*pk*(2./15.*j1-1./5.*j3)*wt*sk2 * ap;
       sum3 += k2*pk*(-1./5.*j1-1./5.*j3)*wt;
       sum4 += k2*pk*(j3)*wt;
       sum5 += k2*pk*kk*(-14*j0-40*j2+9*j4)/315.*wt*ap;
@@ -352,7 +353,8 @@ protected:
     sum[2] = sum2 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_2
     sum[3] = sum3 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_3
     sum[4] = sum4 * hh/3.0/(2*M_PI*M_PI);       // mathcal{J}_4
-    sum[5] = 4    * sum[1]*sum[2];              // V_i^{12}
+    sum2p  = sum2p* hh/3.0/(2*M_PI*M_PI);
+    sum[5] = 4    * sum[1]*sum2p;               // V_i^{12}
     sum[6] = 4./3.* sum[1]*sum[1];              // chi12
     sum[7] = 2*zeta;                            // zeta
     return(sum);
