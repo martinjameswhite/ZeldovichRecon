@@ -744,6 +744,12 @@ public:
               Ainv[3*i+2] /= (1+f2);
               Ainv[3*2+i] /= (1+f1);
             }
+            // symmetrize -- not necessary but ...
+            for (int i=1; i<3; ++i)
+              for (int j=0; j<i; ++j) {
+                double tmp = 0.5*(Ainv[3*i+j]+Ainv[3*j+i]);
+                Ainv[3*i+j]=Ainv[3*j+i]=tmp;
+              }
             Ainv[9] /= (1+f1)*(1+f2);
             // Construct the auxilliary matrix/vectors g, G of CLPT Eq. (45)
             double g[3],U[3],G[9];
