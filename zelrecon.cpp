@@ -964,7 +964,7 @@ int	main(int argc, char **argv)
   b2bs[0]=b2[0]*bs[0]; b2bs[1]=b2bs[0]; b2bs[2]=0; b2bs[3]=0;
   bsbs[0]=bs[0]*bs[0]; bsbs[1]=bsbs[0]; bsbs[2]=0; bsbs[3]=0;
 
-#ifdef	NOSHIFTRANDOM
+#ifdef	RECISO
   // The rec-iso case.
   f1[0]=ff;  f1[1]=ff; f1[2]= 0; f1[3]=ff;
   f2[0]=ff;  f2[1]=ff; f2[2]= 0; f2[3]= 0;
