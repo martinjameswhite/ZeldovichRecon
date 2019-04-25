@@ -152,7 +152,8 @@ protected:
   std::vector<double>	kLin,pLin,etaPer,etaPar,uVal,xiLin;
   std::vector<double>	J2Lin,J3Lin,J4Lin;
   std::vector<double>	V12Lin,chiLin,zetLin;
-  double		qmin,qmax,Rf,delta,dkinv,sigma2;
+  double		qmin,qmax,Rf,delta,dkinv,sigma2,dsig2;
+  bool			am_DS;
   std::vector<double> sphBess(const double x) {
     // Returns j0(x) and j1(x)/x.
     std::vector<double> jl(2);
@@ -228,6 +229,21 @@ protected:
         sum += exp(kLin[i]+pLin[i])*0.5*(sk1*sk1+sk2*sk2)*wt;
       else
         sum += exp(kLin[i]+pLin[i])*sk1*sk2*wt;
+      wt   = 8/wt;
+    }
+    sum *= (kLin[2]-kLin[0])/6;
+    sum /= 6*M_PI*M_PI;
+    return(sum);
+  }
+  double calcDelSigma2() {
+    // Computes the difference between the (1-S) filtered sigma^2_eta
+    // and the S filtered sigma^2_eta.
+    int wt=4; double sum=0;
+    for (int i=1; i<kLin.size(); ++i) {
+      double kk = exp(kLin[i]);
+      double sk1= 1.0-exp(-kk*kk*Rf*Rf/2);
+      double sk2=    -exp(-kk*kk*Rf*Rf/2);
+      sum += exp(kLin[i]+pLin[i])*0.5*(sk1*sk1-sk2*sk2)*wt;
       wt   = 8/wt;
     }
     sum *= (kLin[2]-kLin[0])/6;
@@ -415,6 +431,7 @@ protected:
       zetLin.resize(NqTable);
     } catch(std::exception& e) {myexception(e);}
     sigma2 = calcSigma2(itype);
+    dsig2  = calcDelSigma2();
     delta=(qmax-qmin)/(NqTable-1);
     for (int i=0; i<NqTable; ++i) {
       double qq = qmin+i*delta;
@@ -543,6 +560,8 @@ protected:
 public:
   void init(const char fname[], const double Rfilter, const int itype=0) {
     Rf = Rfilter;
+    // Keep track of whether I am a DS cross term.
+    am_DS = (itype==3);
     // Initialize the G-L integration points and weights.
     gl.set(128);
     // Load the linear power spectrum from a file, and expand it out
@@ -751,6 +770,38 @@ public:
                 Ainv[3*i+j]=Ainv[3*j+i]=tmp;
               }
             Ainv[9] /= (1+f1)*(1+f2);
+            // Need to do the DS case separately.
+            if (am_DS) {
+              // Need to compute all A-related functions specially.
+              std::vector<double> Amat = calcAmat(qq);
+              std::vector<double> DD1(9),SS1(9);
+              DD1[0]=DD1[4]=DD1[8]=sigma2 + dsig2;
+              SS1[0]=SS1[4]=SS1[8]=sigma2 - dsig2;
+              for (int i=0; i<3; ++i)
+                Amat[3*i+i] -= 2*sigma2;
+              // Go into redshift space.
+              DD1[8] *= (1+f1)*(1+f1);
+              SS1[8] *= (1+f2)*(1+f2);
+              for (int i=0; i<3; ++i) {
+                Amat[3*i+2] *= (1+f1);
+                Amat[3*2+i] *= (1+f2);
+              }
+              for (int i=0; i<9; ++i) Amat[i] += DD1[i]+SS1[i];
+              for (int i=1; i<3; ++i)
+                for (int j=0; j<i; ++j) {
+                  double tmp = 0.5*(Amat[3*i+j]+Amat[3*j+i]);
+                  Amat[3*i+j]=Amat[3*j+i]=tmp;
+              }
+              minvert(Amat,Ainv);
+              // Recompute the Zeldovich integrand.
+              const double twoPi3=248.05021344239853;
+              double res=0;
+              for (int i=0; i<3; ++i)
+                for (int j=0; j<3; ++j)
+                  res += xv[i]*Ainv[3*i+j]*xv[j];
+              res = exp(-0.5*res)*sqrt(Ainv[9]/twoPi3);
+              pref= x2 * res * gl.w[imu];
+            }
             // Construct the auxilliary matrix/vectors g, G of CLPT Eq. (45)
             double g[3],U[3],G[9];
             for (int i=0; i<3; ++i) {
@@ -859,14 +910,16 @@ int	main(int argc, char **argv)
   b2bs[0]=b2[0]*bs[0]; b2bs[1]=b2bs[0]; b2bs[2]=0; b2bs[3]=0;
   bsbs[0]=bs[0]*bs[0]; bsbs[1]=bsbs[0]; bsbs[2]=0; bsbs[3]=0;
 
+#ifdef	NOSHIFTRANDOM
+  // The rec-iso case.
+  f1[0]=ff;  f1[1]=ff; f1[2]= 0; f1[3]=ff;
+  f2[0]=ff;  f2[1]=ff; f2[2]= 0; f2[3]= 0;
+#else
   // This is the right set if we shift the randoms by (1+f) in
   // the line-of-sight direction.
   f1[0]=ff;  f1[1]=ff; f1[2]=ff; f1[3]=ff;
   f2[0]=ff;  f2[1]=ff; f2[2]=ff; f2[3]=ff;
-
-  // This is a placeholder for when/if we implement the rec-iso case.
-  //f1[0]=ff;  f1[1]=ff; f1[2]= 0; f1[3]=ff;
-  //f2[0]=ff;  f2[1]=ff; f2[2]= 0; f2[3]= 0;
+#endif
 
   // Create instances for each type of correlation function.
   std::vector<Zeldovich> zel(Ntype);
