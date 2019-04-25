@@ -882,6 +882,8 @@ int	hidden_main(const char pkfile[], const double ff,
   f1[0]=ff;  f1[1]=ff; f1[2]= 0; f1[3]=ff;
   f2[0]=ff;  f2[1]=ff; f2[2]= 0; f2[3]= 0;
 #else
+  // This is actually not yet implemented ... pending fiddling with
+  // the A_{ij} term for the DS piece.
   f1[0]=ff;  f1[1]=ff; f1[2]=ff; f1[3]=ff;
   f2[0]=ff;  f2[1]=ff; f2[2]=ff; f2[3]=ff;
 #endif
