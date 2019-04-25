@@ -825,7 +825,7 @@ public:
               }
             Ainv[9] /= (1+f1)*(1+f2);
             // Need to do the DS case separately.
-            if (am_DS) {
+            if (am_DS && fabs(f1-f2)>1e-4) {
               // Need to compute all A-related functions specially.
               std::vector<double> Amat = calcAmat(qq);
               std::vector<double> DD1(9),SS1(9);

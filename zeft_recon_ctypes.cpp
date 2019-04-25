@@ -152,7 +152,8 @@ protected:
   std::vector<double>	kLin,pLin,etaPer,etaPar,uVal,xiLin;
   std::vector<double>   J2Lin,J3Lin,J4Lin;
   std::vector<double>   V12Lin,chiLin,zetLin;
-  double		qmin,qmax,Rf,delta,dkinv,sigma2,eftNorm;
+  double		qmin,qmax,Rf,delta,dkinv,sigma2,dsig2,eftNorm;
+  bool			am_DS;
   std::vector<double> sphBess(const double x) {
     // Returns j0(x) and j1(x)/x.
     std::vector<double> jl(2);
@@ -230,6 +231,22 @@ protected:
         sum += exp(kLin[i]+pLin[i])*0.5*(sk1*sk1+sk2*sk2)*wt;
       else
         sum += exp(kLin[i]+pLin[i])*sk1*sk2*wt;
+    }
+    sum *= (kLin[2]-kLin[0])/6;
+    sum /= 6*M_PI*M_PI;
+    return(sum);
+  }
+  double calcDelSigma2() {
+    // Computes the difference between the (1-S) filtered sigma^2_eta
+    // and the S filtered sigma^2_eta.
+    double sum=0;
+#pragma omp parallel for reduction(+:sum)
+    for (int i=1; i<kLin.size(); ++i) {
+      double kk = exp(kLin[i]);
+      double sk1= 1.0-exp(-kk*kk*Rf*Rf/2);
+      double sk2=    -exp(-kk*kk*Rf*Rf/2);
+      int wt = 2+2*(i%2);
+      sum   += exp(kLin[i]+pLin[i])*0.5*(sk1*sk1-sk2*sk2)*wt;
     }
     sum *= (kLin[2]-kLin[0])/6;
     sum /= 6*M_PI*M_PI;
@@ -438,6 +455,7 @@ protected:
       zetLin.resize(NqTable);
     } catch(std::exception& e) {myexception(e);}
     sigma2 = calcSigma2(itype);
+    dsig2  = calcDelSigma2();
     delta=(qmax-qmin)/(NqTable-1);
     for (int i=0; i<NqTable; ++i) {
       double qq = qmin+i*delta;
@@ -496,6 +514,76 @@ protected:
     }
     return(qf);
   }
+  void  minvert(std::vector<double>& a, std::vector<double>& b) {
+    // Cholesky decompose a, destroying it in the process, and return
+    // the inverse of a in b.  This is hardwired for n=3, but that can
+    // be changed in the next line ...
+    const int n=3;
+    double d[n],y[n];
+    // First decompose the matrix into A=L.L^T.
+    for(int i=0; i<n; ++i)
+      for (int j=i; j<n; ++j) {
+        double sum = a[n*i+j];
+        for (int k=i-1; k>=0; --k)
+          sum = sum - a[n*i+k] * a[n*j+k];
+        if (i==j) {
+          if (sum <= 0.) {
+            std::cerr << "minvert: Matrix not positive definite." << std::endl;
+            std::cerr << "Sum is " << sum << std::endl;
+            std::cerr.flush();
+            myexit(1);
+          }
+          d[i] = sqrt(sum);
+        }
+        else
+          a[n*j+i] = sum/d[i];
+      }
+    // Compute the determinant of the inverse.
+    b[n*n]=1;  for (int i=0; i<n; ++i) b[n*n] *= 1/d[i]/d[i];
+    // Now we compute the inverse matrix by forward and back substitution.
+    // For each k from 1..n:
+    // First the forward substitution routine computes the vector y which
+    // solves Ly=b where b_i=\delta_{ik}.  Then we solve L^Tx=y and x
+    // contains the k-th row of the inverse matrix.
+    for (int k=0; k<n; ++k) {
+      if (k==0)
+        y[0] = 1./d[0];
+      else
+        y[0] = 0.;
+      for (int i=1; i<n; ++i) {
+        double sum = 0.;
+        for (int j=0; j<=i-1; ++j)
+          sum = sum - a[n*i+j]*y[j];
+        if (i==k)
+          sum = 1.+sum;
+        y[i] = sum/d[i];
+      } // End for(i)
+      b[n*k+n-1] = y[n-1]/d[n-1];
+      for (int i=n-2; i>=0; --i) {
+        double sum = 0.;
+        for (int j=i+1; j<n; j++)
+          sum = sum-a[n*j+i]* b[n*k+j];
+        sum = sum + y[i];
+        b[n*k+i] = sum/d[i];
+      }
+    }
+  }
+  std::vector<double> calcAmat(const double q[]) {
+    // Returns the 3x3 matrix A (Eq. 28 of CLPT).
+    double qhat[3],qq=0;
+    for (int i=0; i<3; ++i) qq += q[i]*q[i];  qq=sqrt(qq);
+    for (int i=0; i<3; ++i) qhat[i] = q[i]/qq;
+    std::vector<double> qf=interpQfuncs(qq);
+    double F =2*(sigma2-qf[0]); // sigma_perp^2
+    double G =2*(qf[0] -qf[1]); // sigma_par ^2 - sigma_perp^2
+    std::vector<double> Amat(9);
+    for (int i=0; i<3; ++i)
+      for (int j=i; j<3; ++j) {
+        Amat[3*i+j] = Amat[3*j+i]  = G*qhat[i]*qhat[j];
+        if (i==j)     Amat[3*i+i] += F;
+      }
+    return(Amat);
+  }
   std::vector<double> calcAinv(const double q[]) {
     // Returns the inverse of the 3x3 matrix A (Eq. 28 of CLPT).
     // Also returns the determinant of Ainv as the last (extra) element.
@@ -550,6 +638,8 @@ protected:
 public:
   void init(const char fname[], const double Rfilter, const int itype=0) {
     Rf = Rfilter;
+    // Keep track of whether am a DS term.
+    am_DS = (itype==3);
     // Initialize the G-L integration points and weights.
     gl.set(128);
     // Load the linear power spectrum from a file, and expand it out
@@ -763,6 +853,38 @@ public:
               Ainv[3*2+i] /= (1+f1);
             }
             Ainv[9] /= (1+f1)*(1+f2);
+            // Need to do the DS case separately for rec-iso.
+            if (am_DS && fabs(f1-f2)>1e-4) {
+              // Need to compute all A-related functions specially.
+              std::vector<double> Amat = calcAmat(qq);
+              std::vector<double> DD1(9),SS1(9);
+              DD1[0]=DD1[4]=DD1[8]=sigma2 + dsig2;
+              SS1[0]=SS1[4]=SS1[8]=sigma2 - dsig2;
+              for (int i=0; i<3; ++i)
+                Amat[3*i+i] -= 2*sigma2;
+              // Go into redshift space.
+              DD1[8] *= (1+f1)*(1+f1);
+              SS1[8] *= (1+f2)*(1+f2);
+              for (int i=0; i<3; ++i) {
+                Amat[3*i+2] *= (1+f1);
+                Amat[3*2+i] *= (1+f2);
+              }
+              for (int i=0; i<9; ++i) Amat[i] += DD1[i]+SS1[i];
+              for (int i=1; i<3; ++i)
+                for (int j=0; j<i; ++j) {
+                  double tmp = 0.5*(Amat[3*i+j]+Amat[3*j+i]);
+                  Amat[3*i+j]=Amat[3*j+i]=tmp;
+              }
+              minvert(Amat,Ainv);
+              // Recompute the Zeldovich integrand.
+              const double twoPi3=248.05021344239853;
+              double res=0;
+              for (int i=0; i<3; ++i)
+                for (int j=0; j<3; ++j)
+                  res += xv[i]*Ainv[3*i+j]*xv[j];
+              res = exp(-0.5*res)*sqrt(Ainv[9]/twoPi3);
+              pref= x2 * res * gl.w[imu];
+            }
             // Construct the auxilliary matrix/vectors g, G of CLPT Eq. (45)
             double g[3],U[3],G[9];
             for (int i=0; i<3; ++i) {
