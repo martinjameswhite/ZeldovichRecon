@@ -490,6 +490,60 @@ protected:
     }
     return(qf);
   }
+  void  minvert(std::vector<double>& a, std::vector<double>& b) {
+    // Cholesky decompose a, destroying it in the process, and return
+    // the inverse of a in b.  This is hardwired for n=3, but that can
+    // be changed in the next line ...
+    const int n=3;
+    double d[n],y[n];
+    // First decompose the matrix into A=L.L^T.
+    for(int i=0; i<n; ++i)
+      for (int j=i; j<n; ++j) {
+        double sum = a[n*i+j];
+        for (int k=i-1; k>=0; --k)
+          sum = sum - a[n*i+k] * a[n*j+k];
+        if (i==j) {
+          if (sum <= 0.) {
+            std::cerr << "minvert: Matrix not positive definite." << std::endl;
+            std::cerr << "Sum is " << sum << std::endl;
+            std::cerr.flush();
+            myexit(1);
+          }
+          d[i] = sqrt(sum);
+        }
+        else
+          a[n*j+i] = sum/d[i];
+      }
+    // Compute the determinant of the inverse.
+    b[n*n]=1;  for (int i=0; i<n; ++i) b[n*n] *= 1/d[i]/d[i];
+    // Now we compute the inverse matrix by forward and back substitution.
+    // For each k from 1..n:
+    // First the forward substitution routine computes the vector y which
+    // solves Ly=b where b_i=\delta_{ik}.  Then we solve L^Tx=y and x
+    // contains the k-th row of the inverse matrix.
+    for (int k=0; k<n; ++k) {
+      if (k==0)
+        y[0] = 1./d[0];
+      else
+        y[0] = 0.;
+      for (int i=1; i<n; ++i) {
+        double sum = 0.;
+        for (int j=0; j<=i-1; ++j)
+          sum = sum - a[n*i+j]*y[j];
+        if (i==k)
+          sum = 1.+sum;
+        y[i] = sum/d[i];
+      } // End for(i)
+      b[n*k+n-1] = y[n-1]/d[n-1];
+      for (int i=n-2; i>=0; --i) {
+        double sum = 0.;
+        for (int j=i+1; j<n; j++)
+          sum = sum-a[n*j+i]* b[n*k+j];
+        sum = sum + y[i];
+        b[n*k+i] = sum/d[i];
+      }
+    }
+  }
   std::vector<double> calcAmat(const double q[]) {
     // Returns the 3x3 matrix A (Eq. 28 of CLPT).
     double qhat[3],qq=0;
