@@ -882,7 +882,7 @@ public:
                 double upsilon= qh[i]*qh[j]*(3*qf[6]*qf[6]+4*qf[6]*qf[7]+
                                 2*qf[6]*qf[8]+2*qf[7]*qf[7]+4*qf[7]*qf[8]+
                                 qf[8]*qf[8]) + (i==j)*2*qf[7]*qf[7];
-                upsilon *= 1+f1*(i==2);
+                upsilon *= 1+f2*(i==2);
                 upsilon *= 1+f2*(j==2);
                 shear   += G[3*i+j]*upsilon;
               }
