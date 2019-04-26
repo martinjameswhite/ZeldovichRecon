@@ -12,7 +12,8 @@ function.  This should compile under g++.
 There is a version, zelrecon_ctypes.cpp, which is designed to be called
 from Python using the ctypes library.  The wrapper "zelr.py" gives an
 example [you need to edit it to set paths correctly].  When compiling
-the code under g++ I use -O -funroll-loops -fopenmp -shared -fPIC.
+the code under g++ I use -O -funroll-loops -fopenmp -shared -fPIC.  This
+code is not being kept up-to-date and should be considered **deprecated**.
 
 Finally, there is a version which implements the "ZEFT" formalism of
 ``A Lagrangian effective field theory'' [arxiv:1506.05264]
