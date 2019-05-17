@@ -1,5 +1,5 @@
 # ZeldovichRecon
-Code to compute the halo correlation function using the Zeldovich approximation.
+Code to compute the post-reconstruction halo correlation function using the Zeldovich approximation.
 
 This code closely follows the formalism described in
 ``Reconstruction within the Zeldovich approximation''
