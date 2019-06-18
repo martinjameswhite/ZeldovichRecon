@@ -15,8 +15,8 @@ bs=1.0
 Rf=15.00
 # Call the code for pre- and post-reconstruction xi.
 zel=Z.ZeftRecon()                                                       
-raw=zel(pk,ff,b1,b2,bs,-1,1.0,1.0,0.0)
-rec=zel(pk,ff,b1,b2,bs,Rf,1.0,1.0,0.0)
+raw=zel(pk,ff,b1,b2,bs,-1,1.0,1.0,0.0,0.0)
+rec=zel(pk,ff,b1,b2,bs,Rf,1.0,1.0,0.0,0.0)
 # and compare them in a figure.
 fig,ax = plt.subplots(1,1)
 ax.plot(raw[1:,0], raw[1:,1],'b:' ,label=r'Raw$(\ell=0)$')

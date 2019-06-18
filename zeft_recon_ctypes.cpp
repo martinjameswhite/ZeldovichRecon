@@ -718,7 +718,8 @@ public:
     xi -= 1.0;		// Calculated 1+xi, subtract 1 for xi.
     return(xi);
   }
-  std::vector<double> xiContributions(const double rval, const double Aeft) {
+  std::vector<double> xiContributions(const double rval,
+                                      const double Ad, const double An) {
     // Returns the different contributions to the real-space Zel'dovich
     // correlation function for locally biased tracers.
     // This is not tested for very large or small values of r.
@@ -762,7 +763,7 @@ public:
           for (int i=0; i<3; ++i)
             for (int j=0; j<3; ++j)
               G[3*i+j]=Ainv[3*i+j]-g[i]*g[j];
-          double Ug,UUG,gq,trG;  Ug=UUG=gq=trG=0;
+          double Ug,UUG,gq,trG,nnG;  Ug=UUG=gq=trG=0;
           for (int i=0; i<3; ++i) {
             Ug += (qf[2]*qh[i])*g[i];
             gq += g[i]*qh[i];
@@ -770,6 +771,7 @@ public:
             for (int j=0; j<3; ++j)
               UUG += qf[2]*qf[2]*qh[i]*qh[j]*G[3*i+j];
           }
+          nnG = G[3*2+2];
           // The <s^2 Delta Delta> term:
           double shear=0;
           for (int i=0; i<3; ++i)
@@ -782,7 +784,7 @@ public:
           shear *= 2;
           double V12=qf[9]*gq;
           // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 terms.
-          sum0 +=    pref*(1+Aeft*trG*eftNorm);
+          sum0 +=    pref*(1+(Ad*trG+An*nnG)*eftNorm);
           sum1 += -2*pref*Ug;
           sum2 +=   -pref*UUG;
           sum3 +=    pref*(qf[3]-UUG);
@@ -807,7 +809,7 @@ public:
   }
   std::vector<double> xiContributions(const double rval, const double mu,
                                       const double f1, const double f2,
-                                      const double Aeft) {
+                                      const double Ad, const double An) {
     // Returns the different contributions to the redshift-space Zel'dovich
     // correlation function for locally biased tracers.
     // This is not tested for very large or small values of r.
@@ -897,7 +899,7 @@ public:
             for (int i=0; i<3; ++i)
               for (int j=0; j<3; ++j)
                 G[3*i+j]=Ainv[3*i+j]-g[i]*g[j];
-            double Ug,UUG,gq,trG;  Ug=UUG=gq=trG=0;
+            double Ug,UUG,gq,trG,nnG;  Ug=UUG=gq=trG=0;
             for (int i=0; i<3; ++i) {
               Ug += U[i]*g[i];
               gq += g[i]*qh[i];
@@ -905,6 +907,7 @@ public:
               for (int j=0; j<3; ++j)
                 UUG += U[i]*U[j]*G[3*i+j];
             }
+            nnG = G[3*2+2];
             // The <s^2 Delta Delta> term:
             double shear=0;
             for (int i=0; i<3; ++i)
@@ -919,7 +922,7 @@ public:
             shear *= 2;
             double V12=qf[9]*(gq+f2*qh[2]*g[2]);
             // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 & shear terms.
-            sum0 +=    pref*(1+Aeft*trG*eftNorm);
+            sum0 +=    pref*(1+(Ad*trG+An*nnG)*eftNorm);
             sum1 += -2*pref*Ug;
             sum2 +=   -pref*UUG;
             sum3 +=    pref*(qf[3]-UUG);
@@ -945,7 +948,7 @@ public:
   std::vector<double> xiContributions(const double ss,
                                       const double f1,   const double f2,
                                       const double Apar, const double Aperp,
-                                      const double Aeft) {
+                                      const double alpd, const double alpn) {
     // Returns the contributions to the multipoles of the redshift-space
     // correlation function for locally biased tracers.
     // This is not tested for very large or small values of r.
@@ -961,7 +964,7 @@ public:
                        Apar2 *   gg.x[i]*gg.x[i] );
       double rval=ss*lfac;
       double mu  =Apar*gg.x[i]/lfac;
-      std::vector<double> ximu = xiContributions(rval,mu,f1,f2,Aeft);
+      std::vector<double> ximu = xiContributions(rval,mu,f1,f2,alpd,alpn);
       double p0=1.0;
       double p2=0.5*(3*gg.x[i]*gg.x[i]-1);
       for (int j=0; j<ximu.size(); ++j) {
@@ -982,7 +985,8 @@ int	hidden_main(const char pkfile[], const double ff,
                     const double F1, const double F2, const double Fs,
                     const double Rf,
                     const double Apar, const double Aperp,
-                    const double Aeft, const char outfile[])
+                    const double Ad,   const double An,
+                    const char outfile[])
 {
   // Set up the values of (b,f) for the different "types" of
   // correlation function (0=NoRecon, 1=DD, 2=SS, 3=DS) so we
@@ -1010,6 +1014,9 @@ int	hidden_main(const char pkfile[], const double ff,
   f2[0]=ff;  f2[1]=ff; f2[2]=ff; f2[3]=ff;
 #endif
   double fac[Ntype]; fac[0]=1; fac[1]=1; fac[2]=1; fac[3]=-2;
+  double alpd[Ntype],alpn[Ntype];
+  alpd[0]=Ad; alpd[1]=Ad; alpd[2]=alpd[3]=0;
+  alpn[0]=An; alpn[1]=An; alpn[2]=alpn[3]=0;
 
   try {
     const int Nr=26;
@@ -1036,7 +1043,7 @@ int	hidden_main(const char pkfile[], const double ff,
         double rr = rmin + i*(rmax-rmin)/(Nr-1);
         fs<<std::fixed<<std::setw(12)<<std::setprecision(5)<<rr;
         std::vector<double> xis
-            = zel.xiContributions(rr,f1[0],f2[0],Apar,Aperp,Aeft);
+            = zel.xiContributions(rr,f1[0],f2[0],Apar,Aperp,alpd[0],alpn[0]);
         xi0 = xis[0]+b1[0]*xis[1]+b2[0]*xis[2]
               +b1b1[0]*xis[3]+b1b2[0]*xis[4]+b2b2[0]*xis[5]
               +bs[0]*xis[6]+b1bs[0]*xis[7]+b2bs[0]*xis[8]+bsbs[0]*xis[9];
@@ -1060,7 +1067,8 @@ int	hidden_main(const char pkfile[], const double ff,
         xi0=xi2=0;
         for (int it=1; it<Ntype; ++it) {
           std::vector<double> xis
-               = zel[it].xiContributions(rr,f1[it],f2[it],Apar,Aperp,Aeft);
+               = zel[it].xiContributions(rr,f1[it],f2[it],
+                                         Apar,Aperp,alpd[it],alpn[it]);
           xi0 += (xis[0]+b1[it]*xis[1]+b2[it]*xis[2]
                  +b1b1[it]*xis[3]+b1b2[it]*xis[4]+b2b2[it]*xis[5]+bs[it]*xis[6]
                  +b1bs[it]*xis[7]+b2bs[it]*xis[8]+bsbs[it]*xis[9])*fac[it];
@@ -1090,9 +1098,10 @@ extern "C" {
 int     call_zeft_recon(const char pkfile[], const double ff,
                         const double b1, const double b2, const double bs,
                         const double Rf, const double Apar, const double Aperp,
-                        const double Aeft, const char outfile[]) {
+                        const double Ad, const double An,
+                        const char outfile[]) {
   int ret;
-  ret = hidden_main(pkfile,ff,b1,b2,bs,Rf,Apar,Aperp,Aeft,outfile);
+  ret = hidden_main(pkfile,ff,b1,b2,bs,Rf,Apar,Aperp,Ad,An,outfile);
   return(ret);
 }
 

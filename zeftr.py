@@ -27,7 +27,8 @@ class ZeftRecon:
     __version__ = "1.0"
     __email__  = "mwhite@berkeley.edu"
     #
-    def __call__(self,pkfile,ff=0,b1=0,b2=0,bs=0,Rf=-1,Apar=1,Aperp=1,Aeft=0):
+    def __call__(self,pkfile,ff=0,b1=0,b2=0,bs=0,Rf=-1,\
+                 Apar=1,Aperp=1,alphad=0,alphan=0):
         """
         Runs the code and returns a NumPy array containing
         the data returned by the code.
@@ -38,14 +39,16 @@ class ZeftRecon:
           ctypes.c_double(ff),ctypes.c_double(b1),ctypes.c_double(b2),\
           ctypes.c_double(bs),ctypes.c_double(Rf),\
           ctypes.c_double(Apar),ctypes.c_double(Aperp),\
-          ctypes.c_double(Aeft),ctypes.c_char_p(self.tmpfn.encode('utf-8')))
+          ctypes.c_double(alphad),ctypes.c_double(alphan),\
+          ctypes.c_char_p(self.tmpfn.encode('utf-8')))
         if (ret==0)&(os.path.isfile(self.tmpfn)):
             dd = np.loadtxt(self.tmpfn)
             os.remove(self.tmpfn)
         else:
             outstr = "ZeftRecon call failed with: "+pkfile+","+str(ff)+\
                      ","+str(b1)+","+str(b2)+","+str(bs)+","+str(Rf)+\
-                     ","+str(Apar)+","+str(Aperp)+","+str(Aeft)
+                     ","+str(Apar)+","+str(Aperp)+\
+                     ","+str(alphad)+","+str(alphan)
             raise(RuntimeError,outstr)
             dd = None
         return(dd)
