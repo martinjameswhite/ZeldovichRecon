@@ -704,7 +704,7 @@ public:
     const double r2   =rval*rval;
     const int    Nx=512;
     const double dx=(xmax-xmin)/Nx;
-    std::vector<double> xi(10);
+    std::vector<double> xi(12);
     for (int ixx=0; ixx<Nx; ++ixx) {
       double xx=xmin+(ixx+0.5)*dx;
       double x2=xx*xx;
@@ -734,13 +734,15 @@ public:
           for (int i=0; i<3; ++i)
             for (int j=0; j<3; ++j)
               G[3*i+j]=Ainv[3*i+j]-g[i]*g[j];
-          double Ug,UUG,gq;  Ug=UUG=gq=0;
+          double Ug,UUG,gq,trG,nnG;  Ug=UUG=gq=trG=0;
           for (int i=0; i<3; ++i) {
             Ug += (qf[2]*qh[i])*g[i];
             gq += g[i]*qh[i];
+            trG+= G[3*i+i];
             for (int j=0; j<3; ++j)
               UUG += qf[2]*qf[2]*qh[i]*qh[j]*G[3*i+j];
           }
+          nnG = G[3*2+2];
           // The <s^2 Delta Delta> term:
           double shear=0;
           for (int i=0; i<3; ++i)
@@ -753,16 +755,18 @@ public:
           shear *= 2;
           double V12=qf[9]*gq;
           // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 terms.
-          xi[0] +=    pref;
-          xi[1] += -2*pref*Ug;
-          xi[2] +=   -pref*UUG;
-          xi[3] +=    pref*(qf[3]-UUG);
-          xi[4] += -2*pref*qf[3]*Ug;
-          xi[5] +=0.5*pref*qf[3]*qf[3];
-          xi[6] +=   -pref*shear;
-          xi[7] +=   -pref*2*V12;
-          xi[8] +=    pref*qf[10];
-          xi[9] +=    pref*qf[11];
+          xi[ 0] +=    pref;
+          xi[ 1] += -2*pref*Ug;
+          xi[ 2] +=   -pref*UUG;
+          xi[ 3] +=    pref*(qf[3]-UUG);
+          xi[ 4] += -2*pref*qf[3]*Ug;
+          xi[ 5] +=0.5*pref*qf[3]*qf[3];
+          xi[ 6] +=   -pref*shear;
+          xi[ 7] +=   -pref*2*V12;
+          xi[ 8] +=    pref*qf[10];
+          xi[ 9] +=    pref*qf[11];
+          xi[10] +=    pref*trG;
+          xi[11] +=    pref*nnG;
         }
       }
     }
@@ -868,13 +872,15 @@ public:
             for (int i=0; i<3; ++i)
               for (int j=0; j<3; ++j)
                 G[3*i+j]=Ainv[3*i+j]-g[i]*g[j];
-            double Ug,UUG,gq;  Ug=UUG=gq=0;
+            double Ug,UUG,gq,trG,nnG;  Ug=UUG=gq=trG=0;
             for (int i=0; i<3; ++i) {
               Ug += U[i]*g[i];
               gq += g[i]*qh[i];
+              trG+= G[3*i+i];
               for (int j=0; j<3; ++j)
                 UUG += U[i]*U[j]*G[3*i+j];
             }
+            nnG = G[3*2+2];
             // The <s^2 Delta Delta> term:
             double shear=0;
             for (int i=0; i<3; ++i)
@@ -889,16 +895,18 @@ public:
             shear *= 2;
             double V12=qf[9]*(gq+f2*qh[2]*g[2]);
             // Now do the 1, Fp, Fpp, Fp^2, Fp.Fpp, Fpp^2 & shear terms.
-            xi[0] +=    pref;
-            xi[1] += -2*pref*Ug;
-            xi[2] +=   -pref*UUG;
-            xi[3] +=    pref*(qf[3]-UUG);
-            xi[4] += -2*pref*qf[3]*Ug;
-            xi[5] +=0.5*pref*qf[3]*qf[3];
-            xi[6] +=   -pref*shear;
-            xi[7] +=   -pref*2*V12;
-            xi[8] +=    pref*qf[10];
-            xi[9] +=    pref*qf[11];
+            xi[ 0] +=    pref;
+            xi[ 1] += -2*pref*Ug;
+            xi[ 2] +=   -pref*UUG;
+            xi[ 3] +=    pref*(qf[3]-UUG);
+            xi[ 4] += -2*pref*qf[3]*Ug;
+            xi[ 5] +=0.5*pref*qf[3]*qf[3];
+            xi[ 6] +=   -pref*shear;
+            xi[ 7] +=   -pref*2*V12;
+            xi[ 8] +=    pref*qf[10];
+            xi[ 9] +=    pref*qf[11];
+            xi[10] +=    pref*trG;
+            xi[11] +=    pref*nnG;
           }
         }
       }
@@ -918,7 +926,7 @@ public:
     GaussLegendre gg = GaussLegendre(2*Nmu);	// Must be even.
     // For even lengths, can sum over half of the points.
     std::vector<double> xiell;
-    try{xiell.resize(20);}catch(std::exception& e) {myexception(e);}
+    try{xiell.resize(24);}catch(std::exception& e) {myexception(e);}
     for (int i=0; i<Nmu; ++i) {
       std::vector<double> ximu = xiContributions(rval,gg.x[i],f1,f2);
       double p0=1.0;
@@ -939,13 +947,13 @@ public:
 
 int	main(int argc, char **argv)
 {
-  if (argc!=7) {
-    std::cout<<"Usage: zeldovich <pkfile> <f> <b1> <b2> <bs> <R>"
+  if (argc!=9) {
+    std::cout<<"Usage: zeldovich <pkfile> <f> <b1> <b2> <bs> <Ad> <An> <R>"
              <<std::endl;
     exit(1);
   }
   const double ff = atof(argv[2]);
-  const double Rf = atof(argv[6]);
+  const double Rf = atof(argv[8]);
 
   // Set up the values of (b,f) for the different "types" of
   // correlation function (0=NoRecon, 1=DD, 2=SS, 3=DS) so we
@@ -954,6 +962,7 @@ int	main(int argc, char **argv)
   double b1[Ntype],b2[Ntype],b1b1[Ntype],b1b2[Ntype],b2b2[Ntype];
   double bs[Ntype],b1bs[Ntype],b2bs[Ntype],bsbs[Ntype];
   double f1[Ntype],f2[Ntype];
+  double Ad[Ntype],An[Ntype];
   b1[0] = atof(argv[3]); b1[1]=  b1[0];   b1[2]=0;   b1[3]=0.5*b1[0];
   b2[0] = atof(argv[4]); b2[1]=  b2[0];   b2[2]=0;   b2[3]=0.5*b2[0];
   bs[0] = atof(argv[5]); bs[1]=  bs[0];   bs[2]=0;   bs[3]=0.5*bs[0];
@@ -963,6 +972,8 @@ int	main(int argc, char **argv)
   b1bs[0]=b1[0]*bs[0]; b1bs[1]=b1bs[0]; b1bs[2]=0; b1bs[3]=0;
   b2bs[0]=b2[0]*bs[0]; b2bs[1]=b2bs[0]; b2bs[2]=0; b2bs[3]=0;
   bsbs[0]=bs[0]*bs[0]; bsbs[1]=bsbs[0]; bsbs[2]=0; bsbs[3]=0;
+  Ad[0]= atof(argv[6]); Ad[1]=Ad[0]; Ad[2]=Ad[3]=0;
+  An[0]= atof(argv[7]); An[1]=An[0]; An[2]=An[3]=0;
 
 #ifdef	RECISO
   // The rec-iso case.
@@ -1020,7 +1031,8 @@ int	main(int argc, char **argv)
       std::vector<double> xir=zel[it].xiContributions(rr);
       xi=xir[0]+b1[it]*xir[1]+b2[it]*xir[2]
         +b1b1[it]*xir[3]+b1b2[it]*xir[4]+b2b2[it]*xir[5]
-        +bs[it]*xir[6]+b1bs[it]*xir[7]+b2bs[it]*xir[8]+bsbs[it]*xir[9];
+        +bs[it]*xir[6]+b1bs[it]*xir[7]+b2bs[it]*xir[8]+bsbs[it]*xir[9]
+        +Ad[it]*xir[10]+An[it]*xir[11];
       std::cout<<std::fixed<<std::setw(9)<<std::setprecision(4)<<xi*rr*rr;
     }
     for (int it=0; it<Ntype; ++it) {
@@ -1028,10 +1040,12 @@ int	main(int argc, char **argv)
       std::vector<double> xis=zel[it].xiContributions(rr,f1[it],f2[it]);
       xi0=xis[0]+b1[it]*xis[1]+b2[it]*xis[2]
          +b1b1[it]*xis[3]+b1b2[it]*xis[4]+b2b2[it]*xis[5]
-         +bs[it]*xis[6]+b1bs[it]*xis[7]+b2bs[it]*xis[8]+bsbs[it]*xis[9];
-      xi2=xis[10]+b1[it]*xis[11]+b2[it]*xis[12]
-         +b1b1[it]*xis[13]+b1b2[it]*xis[14]+b2b2[it]*xis[15]
-         +bs[it]*xis[16]+b1bs[it]*xis[17]+b2bs[it]*xis[18]+bsbs[it]*xis[19];
+         +bs[it]*xis[6]+b1bs[it]*xis[7]+b2bs[it]*xis[8]+bsbs[it]*xis[9]
+         +Ad[it]*xis[10]+An[it]*xis[11];
+      xi2=xis[12]+b1[it]*xis[13]+b2[it]*xis[14]
+         +b1b1[it]*xis[15]+b1b2[it]*xis[16]+b2b2[it]*xis[17]
+         +bs[it]*xis[18]+b1bs[it]*xis[19]+b2bs[it]*xis[20]+bsbs[it]*xis[21]
+         +Ad[it]*xis[22]+An[it]*xis[23];
       std::cout<<std::fixed<<std::setw(9)<<std::setprecision(4)<<xi0*rr*rr;
       std::cout<<std::fixed<<std::setw(9)<<std::setprecision(4)<<xi2*rr*rr;
     }
