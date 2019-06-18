@@ -791,7 +791,7 @@ public:
     const int    Nx=512,Nphi=32;
     const double dx=(xmax-xmin)/Nx;
     const double dphi=2*M_PI/Nphi;
-    std::vector<double> xi(10);
+    std::vector<double> xi(12);
     for (int ixx=0; ixx<Nx; ++ixx) {
       double xx=xmin+(ixx+0.5)*dx;
       double x2=xx*xx;
