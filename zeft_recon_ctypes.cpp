@@ -984,8 +984,10 @@ public:
 int	hidden_main(const char pkfile[], const double ff,
                     const double F1, const double F2, const double Fs,
                     const double Rf,
-                    const double Apar, const double Aperp,
-                    const double Ad,   const double An,
+                    const double Apar,  const double Aperp,
+                    const double Ad_dd, const double An_dd,
+                    const double Ad_ds, const double An_ds,
+                    const double Ad_ss, const double An_ss,
                     const char outfile[])
 {
   // Set up the values of (b,f) for the different "types" of
@@ -1015,8 +1017,8 @@ int	hidden_main(const char pkfile[], const double ff,
 #endif
   double fac[Ntype]; fac[0]=1; fac[1]=1; fac[2]=1; fac[3]=-2;
   double alpd[Ntype],alpn[Ntype];
-  alpd[0]=Ad; alpd[1]=Ad; alpd[2]=alpd[3]=0;
-  alpn[0]=An; alpn[1]=An; alpn[2]=alpn[3]=0;
+  alpd[0]=Ad_dd; alpd[1]=Ad_dd; alpd[2]=Ad_ss; alpd[3]=Ad_ds;
+  alpn[0]=An_dd; alpn[1]=An_dd; alpn[2]=An_ss; alpn[3]=An_ds;
 
   try {
     const int Nr=26;
@@ -1098,10 +1100,13 @@ extern "C" {
 int     call_zeft_recon(const char pkfile[], const double ff,
                         const double b1, const double b2, const double bs,
                         const double Rf, const double Apar, const double Aperp,
-                        const double Ad, const double An,
+                        const double Ad_dd, const double An_dd,
+                        const double Ad_ds, const double An_ds,
+                        const double Ad_ss, const double An_ss,
                         const char outfile[]) {
   int ret;
-  ret = hidden_main(pkfile,ff,b1,b2,bs,Rf,Apar,Aperp,Ad,An,outfile);
+  ret = hidden_main(pkfile,ff,b1,b2,bs,Rf,Apar,Aperp,
+                    Ad_dd,An_dd,Ad_ds,An_ds,Ad_ss,An_ss,outfile);
   return(ret);
 }
 

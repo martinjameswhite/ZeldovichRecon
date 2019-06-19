@@ -27,8 +27,9 @@ class ZeftRecon:
     __version__ = "1.0"
     __email__  = "mwhite@berkeley.edu"
     #
-    def __call__(self,pkfile,ff=0,b1=0,b2=0,bs=0,Rf=-1,\
-                 Apar=1,Aperp=1,alphad=0,alphan=0):
+    def __call__(self,pkfile,ff=0,b1=0,b2=0,bs=0,Rf=-1,Apar=1,Aperp=1,\
+                 alphad_dd=0,alphan_dd=0,alphad_ds=0,alphan_ds=0,\
+                 alphad_ss=0,alphan_ss=0):
         """
         Runs the code and returns a NumPy array containing
         the data returned by the code.
@@ -39,7 +40,9 @@ class ZeftRecon:
           ctypes.c_double(ff),ctypes.c_double(b1),ctypes.c_double(b2),\
           ctypes.c_double(bs),ctypes.c_double(Rf),\
           ctypes.c_double(Apar),ctypes.c_double(Aperp),\
-          ctypes.c_double(alphad),ctypes.c_double(alphan),\
+          ctypes.c_double(alphad_dd),ctypes.c_double(alphan_dd),\
+          ctypes.c_double(alphad_ds),ctypes.c_double(alphan_ds),\
+          ctypes.c_double(alphad_ss),ctypes.c_double(alphan_ss),\
           ctypes.c_char_p(self.tmpfn.encode('utf-8')))
         if (ret==0)&(os.path.isfile(self.tmpfn)):
             dd = np.loadtxt(self.tmpfn)
