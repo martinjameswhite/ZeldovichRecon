@@ -2,10 +2,10 @@
 Code to compute the post-reconstruction halo correlation function using the Zeldovich approximation.
 
 This code closely follows the formalism described in
-``Reconstruction within the Zeldovich approximation''
+``Reconstruction within the Zeldovich approximation``
 MNRAS 450(2015)3822, arxiv:1504.03677
 but has been updated to include the extensions described in
-``The reconstructed power spectrum in the Zeldovich approximation''
+``The reconstructed power spectrum in the Zeldovich approximation``
 by Chen, Vlah & White (2019).  This code has been checked against
 the Python code from that paper, which is available at
 https://github.com/sfschen/ZeldovichReconPk
