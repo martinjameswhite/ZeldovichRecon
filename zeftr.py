@@ -1,5 +1,5 @@
 # Python wrapper class for zeft_recon code.
-# This is just like zelrecon, but with an extra parameter.
+# This is just like zelrecon, but with extra parameters.
 
 
 import numpy  as np
@@ -18,8 +18,7 @@ ff = 0.76
 
 
 class ZeftRecon:
-    """
-    A Python class to conviently "wrap" calls to the
+    """A Python class to conviently "wrap" calls to the
     Zeldovich+EFT reconstruction code.
     This uses temporary files to pass the information around.
     """
@@ -30,8 +29,7 @@ class ZeftRecon:
     def __call__(self,pkfile,ff=0,b1=0,b2=0,bs=0,Rf=-1,Apar=1,Aperp=1,\
                  alphad_dd=0,alphan_dd=0,alphad_ds=0,alphan_ds=0,\
                  alphad_ss=0,alphan_ss=0):
-        """
-        Runs the code and returns a NumPy array containing
+        """Runs the code and returns a NumPy array containing
         the data returned by the code.
         Note: as currently configured returns s^2 xi_ell, not  xi_ell.
         """
@@ -51,15 +49,15 @@ class ZeftRecon:
             outstr = "ZeftRecon call failed with: "+pkfile+","+str(ff)+\
                      ","+str(b1)+","+str(b2)+","+str(bs)+","+str(Rf)+\
                      ","+str(Apar)+","+str(Aperp)+\
-                     ","+str(alphad)+","+str(alphan)
+                     ","+str(alphad_dd)+","+str(alphan_dd)+\
+                     ","+str(alphad_ds)+","+str(alphan_ds)+\
+                     ","+str(alphad_ss)+","+str(alphan_ss)
             raise(RuntimeError,outstr)
             dd = None
         return(dd)
         #
     def __init__(self):
-        """
-        Initialize the class...very lightweight.
-        """
+        """Initialize the class...very lightweight."""
         # Basic initialization, including a temporary file
         # whose name is based on the current host, PPID and PID.
         self.tmpfn = "zeft_recon_{:s}_{:d}_{:d}.txt".\
@@ -72,8 +70,7 @@ class ZeftRecon:
 
 
 def peak_background_bias(nu):
-    """
-    Returns the Lagrangian biases, (b1,b2), given nu.
+    """Returns the Lagrangian biases, (b1,b2), given nu.
     This is helpful if we want to make our basis set f, nu.
     """
     delc = 1.686
